@@ -277,6 +277,21 @@ class _CircuitBreakerTestCase(unittest.TestCase):
         self.assertRaises(KeyError, self.breaker.call, err_3)
         self.assertEqual(0, self.breaker.fail_counter)
 
+    def test_decorator(self):
+        """CircuitBreaker: it might be used as a function decorator.
+        """
+        @self.breaker
+        def suc(): return True
+
+        @self.breaker
+        def err(): raise NotImplementedError()
+
+        self.assertRaises(NotImplementedError, err)
+        self.assertEqual(1, self.breaker.fail_counter)
+
+        self.assertEqual(True, suc())
+        self.assertEqual(0, self.breaker.fail_counter)
+
 
 if __name__ == '__main__':
     unittest.main()

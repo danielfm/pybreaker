@@ -114,22 +114,6 @@ class CircuitBreaker(object):
         """
         return self._state.call(func, *args, **kwargs)
 
-    def on_failure(self, exc):
-        """
-        Override this method to be notified when a call to the guarded
-        operation fails.
-        """
-        if callable(self._on_failure):
-            return self._on_failure(self, exc)
-
-    def on_success(self):
-        """
-        Override this method to be notified when a call to the guarded
-        operation succeeds.
-        """
-        if callable(self._on_success):
-            return self._on_success(self)
-
     def open(self):
         """
         Opens the circuit, e.g., the following calls will immediately fail
@@ -159,9 +143,35 @@ class CircuitBreaker(object):
 
     def on_state_change(self, old_state, new_state):
         """
+        Override this method to be notified when the circuit state changes.
         """
         if callable(self._on_state_change):
             return self._on_state_change(self, old_state, new_state)
+
+    def on_failure(self, exc):
+        """
+        Override this method to be notified when a call to the guarded
+        operation fails.
+        """
+        if callable(self._on_failure):
+            return self._on_failure(self, exc)
+
+    def on_success(self):
+        """
+        Override this method to be notified when a call to the guarded
+        operation succeeds.
+        """
+        if callable(self._on_success):
+            return self._on_success(self)
+
+    def __call__(self, func):
+        """
+        Returns a wrapper that calls the function `func` according to the rules
+        implemented by the current state of this circuit breaker.
+        """
+        def _wrapper(*args, **kwargs):
+            return self.call(func, *args, **kwargs)
+        return _wrapper
 
     # Properties
     fail_max      = property(_get_fail_max, _set_fail_max)
