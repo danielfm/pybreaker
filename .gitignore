@@ -1,0 +1,7 @@
+# Compiled python code
+*.pyc
+
+# Build directories
+build/
+dist/
+*.egg-info/
