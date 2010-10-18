@@ -24,7 +24,7 @@ Features
 Requirements
 ------------
 
-* `Python`_ 2.6+ (including Python 3.0+)
+* `Python`_ 2.6+ (or Python 3.0+)
 
 
 Installation
@@ -77,7 +77,7 @@ integration point::
 These objects should live globally inside the application scope.
 
 
-.. tip::
+.. note::
   
   Integration points to external services (i.e. databases, queues, etc) are
   more likely to fail, so make sure to always use timeouts when accessing such
@@ -117,7 +117,7 @@ When the circuit is open, all calls to ``update_customer`` will fail immediately
 (raising ``CircuitBreakerError``) without any attempt to execute the real
 operation.
 
-After 30 seconds, the circuit breaker will allow the next call to
+After 60 seconds, the circuit breaker will allow the next call to
 ``update_customer`` pass through. If that call succeeds, the circuit is closed;
 if it fails, however, the circuit is opened again until another timeout elapses.
 
@@ -126,8 +126,9 @@ Excluding Exceptions
 ````````````````````
 
 By default, a failed call is any call that raises an exception. However, it's
-common to raise exceptions to also indicate business errors, and those errors
-should be ignored by the circuit breaker as they don't indicate a system error::
+common to raise exceptions to also indicate business exceptions, and those
+exceptions should be ignored by the circuit breaker as they don't indicate
+system errors::
 
     # At creation time
     db_breaker = DBCircuitBreaker(exclude=(CustomerValidationError,))
@@ -144,8 +145,8 @@ In this case, when any function guarded by that circuit breaker raises
 Monitoring and Management
 `````````````````````````
 
-A ``CircuitBreaker`` object provides properties you can use to monitor its
-current state::
+A ``CircuitBreaker`` object provides properties you can use to monitor and
+change its current state::
 
     # Get the current number of consecutive failures
     print db_breaker.fail_counter
@@ -161,10 +162,6 @@ current state::
     # Get the current state, i.e., 'open', 'half-open', 'closed'
     print db_breaker.current_state
 
-
-It's also possible to change the current state of a circuit breaker at any
-time::
-
     # Closes the circuit
     db_breaker.close()
 
@@ -175,7 +172,7 @@ time::
     db_breaker.open()
 
 
-So, if you have a web application using circuit breakers around the integration
+So, if you have a web application using circuit breakers around integration
 points, you can easily write a simple RESTful API to expose these functions to
 the operations staff.
 
