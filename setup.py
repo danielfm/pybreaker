@@ -27,7 +27,7 @@ setup(
     license = 'BSD',
     author = 'Daniel Fernandes Martins',
     author_email = 'daniel@destaquenet.com',
-    url = 'http://github.com/danielfm/circuit-breaker-python',
+    url = 'http://github.com/danielfm/pybreaker',
     package_dir = {'':'src'},
     py_modules = ['pybreaker'],
     include_package_data = True,
