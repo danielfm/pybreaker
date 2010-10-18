@@ -145,8 +145,8 @@ In this case, when any function guarded by that circuit breaker raises
 Monitoring and Management
 `````````````````````````
 
-A ``CircuitBreaker`` object provides properties you can use to monitor and
-change its current state::
+A ``CircuitBreaker`` object provides properties and functions you can use to
+monitor and change its current state::
 
     # Get the current number of consecutive failures
     print db_breaker.fail_counter
@@ -172,9 +172,8 @@ change its current state::
     db_breaker.open()
 
 
-So, if you have a web application using circuit breakers around integration
-points, you can easily write a simple RESTful API to expose these functions to
-the operations staff.
+These properties and functions might and should be exposed to the operations
+staff as they help them find problems in the system.
 
 
 .. _Python: http://python.org
