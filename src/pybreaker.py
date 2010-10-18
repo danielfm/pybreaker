@@ -8,6 +8,8 @@ For more information on this and other patterns and best practices, buy the
 book at http://pragprog.com/titles/mnee/release-it
 """
 
+import __future__
+
 from datetime import datetime, timedelta
 import threading
 
@@ -25,13 +27,14 @@ class CircuitBreaker(object):
     This pattern is described by Michael T. Nygard in his book 'Release It!'.
     """
 
-    def __init__(self, fail_max=5, reset_timeout=60, ignore=None,
+    def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
             on_failure=None, on_success=None, on_state_change=None):
-        """Creates a new circuit breaker.
+        """
+        Creates a new circuit breaker with the given parameters.
         """
         self._fail_max = fail_max
         self._reset_timeout = reset_timeout
-        self._ignored_exceptions = tuple(ignore or ())
+        self._excluded_exceptions = tuple(exclude or ())
 
         self._on_state_change = on_state_change
         self._on_failure = on_failure
@@ -39,6 +42,13 @@ class CircuitBreaker(object):
 
         self._lock = threading.RLock()
         self._state = CircuitClosedState(self)
+        self._fail_counter = 0
+
+    def _get_fail_counter(self):
+        """
+        Returns the current number of consecutive failures.
+        """
+        return self._fail_counter
 
     def _get_fail_max(self):
         """
@@ -56,14 +66,14 @@ class CircuitBreaker(object):
 
     def _get_reset_timeout(self):
         """
-        Once the circuit breaker is opened, it should remain opened until the
+        Once this circuit breaker is opened, it should remain opened until the
         timeout period, in seconds, elapses.
         """
         return self._reset_timeout
 
     def _set_reset_timeout(self, timeout):
         """
-        Sets the `timeout` period, in seconds, the circuit breaker should be
+        Sets the `timeout` period, in seconds, this circuit breaker should be
         kept open.
         """
         self._reset_timeout = timeout
@@ -81,6 +91,20 @@ class CircuitBreaker(object):
         """
         return self._state.name
 
+    def _get_excluded_exc(self):
+        """
+        Returns the list of excluded exceptions, e.g., exceptions that should
+        not be considered system errors by this circuit breaker.
+        """
+        return self._excluded_exceptions
+
+    def _set_excluded_exc(self, exc_classes):
+        """
+        Sets the list of excluded exceptions, e.g., exceptions that should not
+        be considered system errors by this circuit breaker.
+        """
+        self._excluded_exceptions = tuple(exc_classes or ())
+
     def is_system_error(self, exception):
         """
         Returns whether the exception `exception` is considered a signal of
@@ -88,7 +112,7 @@ class CircuitBreaker(object):
         breaker to open.
         """
         texc = type(exception)
-        for exc in self._ignored_exceptions:
+        for exc in self._excluded_exceptions:
             if issubclass(texc, exc):
                 return False
         return True
@@ -145,7 +169,7 @@ class CircuitBreaker(object):
         """
         Override this method to be notified when the circuit state changes.
         """
-        if callable(self._on_state_change):
+        if hasattr(self._on_state_change, '__call__'):
             return self._on_state_change(self, old_state, new_state)
 
     def on_failure(self, exc):
@@ -153,7 +177,7 @@ class CircuitBreaker(object):
         Override this method to be notified when a call to the guarded
         operation fails.
         """
-        if callable(self._on_failure):
+        if hasattr(self._on_failure, '__call__'):
             return self._on_failure(self, exc)
 
     def on_success(self):
@@ -161,7 +185,7 @@ class CircuitBreaker(object):
         Override this method to be notified when a call to the guarded
         operation succeeds.
         """
-        if callable(self._on_success):
+        if hasattr(self._on_success, '__call__'):
             return self._on_success(self)
 
     def __call__(self, func):
@@ -174,10 +198,12 @@ class CircuitBreaker(object):
         return _wrapper
 
     # Properties
-    fail_max      = property(_get_fail_max, _set_fail_max)
-    reset_timeout = property(_get_reset_timeout, _set_reset_timeout)
-    state         = property(_get_state)
-    current_state = property(_get_current_state)
+    excluded_exceptions = property(_get_excluded_exc, _set_excluded_exc)
+    fail_counter        = property(_get_fail_counter)
+    fail_max            = property(_get_fail_max, _set_fail_max)
+    reset_timeout       = property(_get_reset_timeout, _set_reset_timeout)
+    state               = property(_get_state)
+    current_state       = property(_get_current_state)
 
 
 class CircuitBreakerState(object):
@@ -204,7 +230,7 @@ class CircuitBreakerState(object):
         Handles a failed call to the guarded operation.
         """
         if self._breaker.is_system_error(exc):
-            self._breaker.fail_counter += 1
+            self._breaker._fail_counter += 1
             self.on_failure(exc)
             self._breaker.on_failure(exc)
         else:
@@ -215,7 +241,7 @@ class CircuitBreakerState(object):
         """
         Handles a successful call to the guarded operation.
         """
-        self._breaker.fail_counter = 0
+        self._breaker._fail_counter = 0
         self.on_success()
         self._breaker.on_success()
 
@@ -228,7 +254,7 @@ class CircuitBreakerState(object):
         self.before_call()
         try:
             ret = func(*args, **kwargs)
-        except BaseException, e:
+        except BaseException as e:
             self._breaker.synchronized(self._handle_error, e)
         else:
             self._breaker.synchronized(self._handle_success)
@@ -274,7 +300,7 @@ class CircuitClosedState(CircuitBreakerState):
         Moves the given circuit breaker `cb` to the "closed" state.
         """
         CircuitBreakerState.__init__(self, cb, 'closed')
-        self._breaker.fail_counter = 0
+        self._breaker._fail_counter = 0
         if notify:
             self._breaker.on_state_change(prev_state, self)
 
@@ -283,7 +309,7 @@ class CircuitClosedState(CircuitBreakerState):
         Moves the circuit breaker to the "open" state once the failures
         threshold is reached.
         """
-        if self._breaker.fail_counter >= self._breaker.fail_max:
+        if self._breaker._fail_counter >= self._breaker.fail_max:
             self._breaker.open()
             raise CircuitBreakerError('Failures threshold reached, circuit breaker opened')
 

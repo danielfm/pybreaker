@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-from breaker import *
+from pybreaker import *
 
 from random import random
 from time import sleep
-from StringIO import StringIO
 
 import threading
 import unittest
 
 
-class _CircuitBreakerTestCase(unittest.TestCase):
+class CircuitBreakerTestCase(unittest.TestCase):
     """
     Tests for the CircuitBreaker class.
     """
@@ -26,6 +25,7 @@ class _CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(60, self.breaker.reset_timeout)
         self.assertEqual(5, self.breaker.fail_max)
         self.assertEqual('closed', self.breaker.current_state)
+        self.assertEqual((), self.breaker.excluded_exceptions)
 
     def test_new_with_custom_reset_timeout(self):
         """CircuitBreaker: it should support a custom reset timeout value.
@@ -34,6 +34,7 @@ class _CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(0, self.breaker.fail_counter)
         self.assertEqual(30, self.breaker.reset_timeout)
         self.assertEqual(5, self.breaker.fail_max)
+        self.assertEqual((), self.breaker.excluded_exceptions)
 
     def test_new_with_custom_fail_max(self):
         """CircuitBreaker: it should support a custom maximum number of failures.
@@ -42,6 +43,16 @@ class _CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(0, self.breaker.fail_counter)
         self.assertEqual(60, self.breaker.reset_timeout)
         self.assertEqual(10, self.breaker.fail_max)
+        self.assertEqual((), self.breaker.excluded_exceptions)
+
+    def test_new_with_custom_excluded_exceptions(self):
+        """CircuitBreaker: it should support a custom list of excluded exceptions.
+        """
+        self.breaker = CircuitBreaker(exclude=[Exception])
+        self.assertEqual(0, self.breaker.fail_counter)
+        self.assertEqual(60, self.breaker.reset_timeout)
+        self.assertEqual(5, self.breaker.fail_max)
+        self.assertEqual((Exception,), self.breaker.excluded_exceptions)
 
     def test_fail_max_setter(self):
         """CircuitBreaker: it should allow the user to set a new value for 'fail_max'.
@@ -56,6 +67,15 @@ class _CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(60, self.breaker.reset_timeout)
         self.breaker.reset_timeout = 30
         self.assertEqual(30, self.breaker.reset_timeout)
+
+    def test_excluded_exceptions_setter(self):
+        """CircuitBreaker: it should allow the user to set a new value for 'excluded_exceptions'.
+        """
+        self.assertEqual((), self.breaker.excluded_exceptions)
+        self.breaker.excluded_exceptions = [Exception]
+        self.assertEqual((Exception,), self.breaker.excluded_exceptions)
+        self.breaker.excluded_exceptions = []
+        self.assertEqual((), self.breaker.excluded_exceptions)
 
     def test_call_with_no_args(self):
         """CircuitBreaker: it should be able to invoke functions with no-args.
@@ -216,12 +236,12 @@ class _CircuitBreakerTestCase(unittest.TestCase):
     def test_transition_events(self):
         """CircuitBreaker: it should call the appropriate functions on every state transition.
         """
-        out = StringIO()
+        self.out = ''
 
         def on_change(cb, old, new):
-            if old: out.write(old.name)
-            if new: out.write('->' + new.name)
-            out.write(',')
+            if old: self.out += old.name
+            if new: self.out += '->' + new.name
+            self.out += ','
 
         self.breaker = CircuitBreaker(on_state_change=on_change)
         self.assertEqual('closed', self.breaker.current_state)
@@ -235,29 +255,29 @@ class _CircuitBreakerTestCase(unittest.TestCase):
         self.breaker.close()
         self.assertEqual('closed', self.breaker.current_state)
 
-        self.assertEqual('closed->open,open->half-open,half-open->closed,', out.getvalue())
+        self.assertEqual('closed->open,open->half-open,half-open->closed,', self.out)
 
     def test_call_events(self):
         """CircuitBreaker: it should call the appropriate functions on every successful/failed call.
         """
-        out = StringIO()
+        self.out = ''
 
         def suc(): return True
         def err(): raise NotImplementedError()
 
-        def on_success(cb): out.write('-success')
-        def on_failure(cb, exc): out.write('-failure')
+        def on_success(cb): self.out += '-success'
+        def on_failure(cb, exc): self.out += '-failure'
 
         self.breaker = CircuitBreaker(on_success=on_success, on_failure=on_failure)
 
         self.assertEqual(True, self.breaker.call(suc))
         self.assertRaises(NotImplementedError, self.breaker.call, err)
-        self.assertEqual('-success-failure', out.getvalue())
+        self.assertEqual('-success-failure', self.out)
 
-    def test_ignored_errors(self):
+    def test_excluded_errors(self):
         """CircuitBreaker: it should ignore specific exceptions.
         """
-        self.breaker = CircuitBreaker(ignore=[LookupError])
+        self.breaker = CircuitBreaker(exclude=[LookupError])
 
         def err_1(): raise NotImplementedError()
         def err_2(): raise LookupError()
@@ -281,15 +301,15 @@ class _CircuitBreakerTestCase(unittest.TestCase):
         """CircuitBreaker: it might be used as a function decorator.
         """
         @self.breaker
-        def suc(): return True
+        def suc(value): return value
 
         @self.breaker
-        def err(): raise NotImplementedError()
+        def err(value): raise NotImplementedError()
 
-        self.assertRaises(NotImplementedError, err)
+        self.assertRaises(NotImplementedError, err, True)
         self.assertEqual(1, self.breaker.fail_counter)
 
-        self.assertEqual(True, suc())
+        self.assertEqual(True, suc(True))
         self.assertEqual(0, self.breaker.fail_counter)
 
 
