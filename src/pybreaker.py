@@ -13,7 +13,7 @@ import __future__
 from datetime import datetime, timedelta
 import threading
 
-__all__ = ('CircuitBreaker', 'CircuitBreakerError')
+__all__ = ('CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError',)
 
 
 class CircuitBreaker(object):
@@ -28,82 +28,104 @@ class CircuitBreaker(object):
     """
 
     def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
-            on_failure=None, on_success=None, on_state_change=None):
+            listeners=None):
         """
         Creates a new circuit breaker with the given parameters.
         """
         self._fail_max = fail_max
         self._reset_timeout = reset_timeout
-        self._excluded_exceptions = tuple(exclude or ())
+        self._excluded_exceptions = list(exclude or [])
 
-        self._on_state_change = on_state_change
-        self._on_failure = on_failure
-        self._on_success = on_success
+        self._listeners = list(listeners or [])
 
         self._lock = threading.RLock()
         self._state = CircuitClosedState(self)
         self._fail_counter = 0
 
-    def _get_fail_counter(self):
+    @property
+    def fail_counter(self):
         """
         Returns the current number of consecutive failures.
         """
         return self._fail_counter
 
-    def _get_fail_max(self):
+    @property
+    def fail_max(self):
         """
         Returns the maximum number of failures tolerated before the circuit is
         opened.
         """
         return self._fail_max
 
-    def _set_fail_max(self, number):
+    @fail_max.setter
+    def fail_max(self, number):
         """
         Sets the maximum `number` of failures tolerated before the circuit is
         opened.
         """
         self._fail_max = number
 
-    def _get_reset_timeout(self):
+    @property
+    def reset_timeout(self):
         """
         Once this circuit breaker is opened, it should remain opened until the
         timeout period, in seconds, elapses.
         """
         return self._reset_timeout
 
-    def _set_reset_timeout(self, timeout):
+    @reset_timeout.setter
+    def reset_timeout(self, timeout):
         """
         Sets the `timeout` period, in seconds, this circuit breaker should be
         kept open.
         """
         self._reset_timeout = timeout
 
-    def _get_state(self):
+    @property
+    def state(self):
         """
         Returns the current state of this circuit breaker.
         """
         return self._state
 
-    def _get_current_state(self):
+    @property
+    def current_state(self):
         """
         Returns a string that identifies this circuit breaker's state, i.e.,
         'closed', 'open', 'half-open'.
         """
         return self._state.name
 
-    def _get_excluded_exc(self):
+    @property
+    def excluded_exceptions(self):
         """
         Returns the list of excluded exceptions, e.g., exceptions that should
         not be considered system errors by this circuit breaker.
         """
-        return self._excluded_exceptions
+        return tuple(self._excluded_exceptions)
 
-    def _set_excluded_exc(self, exc_classes):
+    def add_excluded_exception(self, exception):
         """
-        Sets the list of excluded exceptions, e.g., exceptions that should not
-        be considered system errors by this circuit breaker.
+        Adds an exception to the list of excluded exceptions.
         """
-        self._excluded_exceptions = tuple(exc_classes or ())
+        def _add_excluded_exception():
+            self._excluded_exceptions.append(exception)
+        self.synchronized(_add_excluded_exception)
+
+    def add_excluded_exceptions(self, *exceptions):
+        """
+        Adds exceptions to the list of excluded exceptions.
+        """
+        for exc in exceptions:
+            self.add_excluded_exception(exc)
+
+    def remove_excluded_exception(self, exception):
+        """
+        Removes an exception from the list of excluded exceptions.
+        """
+        def _remove_excluded_exception():
+            self._excluded_exceptions.remove(exception)
+        self.synchronized(_remove_excluded_exception)
 
     def is_system_error(self, exception):
         """
@@ -165,29 +187,6 @@ class CircuitBreaker(object):
             self._state = CircuitClosedState(self, self._state, notify=True)
         self.synchronized(_close)
 
-    def on_state_change(self, old_state, new_state):
-        """
-        Override this method to be notified when the circuit state changes.
-        """
-        if hasattr(self._on_state_change, '__call__'):
-            return self._on_state_change(self, old_state, new_state)
-
-    def on_failure(self, exc):
-        """
-        Override this method to be notified when a call to the guarded
-        operation fails.
-        """
-        if hasattr(self._on_failure, '__call__'):
-            return self._on_failure(self, exc)
-
-    def on_success(self):
-        """
-        Override this method to be notified when a call to the guarded
-        operation succeeds.
-        """
-        if hasattr(self._on_success, '__call__'):
-            return self._on_success(self)
-
     def __call__(self, func):
         """
         Returns a wrapper that calls the function `func` according to the rules
@@ -197,13 +196,70 @@ class CircuitBreaker(object):
             return self.call(func, *args, **kwargs)
         return _wrapper
 
-    # Properties
-    excluded_exceptions = property(_get_excluded_exc, _set_excluded_exc)
-    fail_counter        = property(_get_fail_counter)
-    fail_max            = property(_get_fail_max, _set_fail_max)
-    reset_timeout       = property(_get_reset_timeout, _set_reset_timeout)
-    state               = property(_get_state)
-    current_state       = property(_get_current_state)
+    @property
+    def listeners(self):
+        """
+        Returns the registered listeners as a tuple.
+        """
+        return tuple(self._listeners)
+
+    def add_listener(self, listener):
+        """
+        Registers a listener for this circuit breaker.
+        """
+        def _add_listener():
+            self._listeners.append(listener)
+        self.synchronized(_add_listener)
+
+    def add_listeners(self, *listeners):
+        """
+        Registers listeners for this circuit breaker.
+        """
+        for listener in listeners:
+            self.add_listener(listener)
+
+    def remove_listener(self, listener):
+        """
+        Unregisters a listener of this circuit breaker.
+        """
+        def _remove_listeners():
+            self._listeners.remove(listener)
+        self.synchronized(_remove_listeners)
+
+
+class CircuitBreakerListener(object):
+    """
+    Listener class used to plug code to a ``CircuitBreaker`` instance when
+    certain events happen.
+    """
+
+    def before_call(self, cb, func, *args, **kwargs):
+        """
+        This callback function is called before the circuit breaker `cb` calls
+        `fn`.
+        """
+        pass
+
+    def failure(self, cb, exc):
+        """
+        This callback function is called when a function called by the circuit
+        breaker `cb` fails.
+        """
+        pass
+
+    def success(self, cb):
+        """
+        This callback function is called when a function called by the circuit
+        breaker `cb` succeeds.
+        """
+        pass
+
+    def state_change(self, cb, old_state, new_state):
+        """
+        This callback function is called when the state of the circuit breaker
+        `cb` state changes.
+        """
+        pass
 
 
 class CircuitBreakerState(object):
@@ -219,7 +275,8 @@ class CircuitBreakerState(object):
         self._breaker = cb
         self._name = name
 
-    def get_name(self):
+    @property
+    def name(self):
         """
         Returns a human friendly name that identifies this state.
         """
@@ -232,7 +289,8 @@ class CircuitBreakerState(object):
         if self._breaker.is_system_error(exc):
             self._breaker._fail_counter += 1
             self.on_failure(exc)
-            self._breaker.on_failure(exc)
+            for listener in self._breaker.listeners:
+                listener.failure(self._breaker, exc)
         else:
             self._handle_success()
         raise exc
@@ -243,7 +301,8 @@ class CircuitBreakerState(object):
         """
         self._breaker._fail_counter = 0
         self.on_success()
-        self._breaker.on_success()
+        for listener in self._breaker.listeners:
+            listener.success(self._breaker)
 
     def call(self, func, *args, **kwargs):
         """
@@ -251,7 +310,11 @@ class CircuitBreakerState(object):
         circuit breaker state according to the result.
         """
         ret = None
+
         self.before_call()
+        for listener in self._breaker.listeners:
+            listener.before_call(self._breaker, func, *args, **kwargs)
+
         try:
             ret = func(*args, **kwargs)
         except BaseException as e:
@@ -281,9 +344,6 @@ class CircuitBreakerState(object):
         """
         pass
 
-    # Properties
-    name = property(get_name)
-
 
 class CircuitClosedState(CircuitBreakerState):
     """
@@ -302,7 +362,8 @@ class CircuitClosedState(CircuitBreakerState):
         CircuitBreakerState.__init__(self, cb, 'closed')
         self._breaker._fail_counter = 0
         if notify:
-            self._breaker.on_state_change(prev_state, self)
+            for listener in self._breaker.listeners:
+                listener.state_change(self._breaker, prev_state, self)
 
     def on_failure(self, exc):
         """
@@ -331,7 +392,8 @@ class CircuitOpenState(CircuitBreakerState):
         CircuitBreakerState.__init__(self, cb, 'open')
         self.opened_at = datetime.now()
         if notify:
-            self._breaker.on_state_change(prev_state, self)
+            for listener in self._breaker.listeners:
+                listener.state_change(self._breaker, prev_state, self)
 
     def before_call(self):
         """
@@ -361,7 +423,8 @@ class CircuitHalfOpenState(CircuitBreakerState):
         """
         CircuitBreakerState.__init__(self, cb, 'half-open')
         if notify:
-            self._breaker.on_state_change(prev_state, self)
+            for listener in self._breaker._listeners:
+                listener.state_change(self._breaker, prev_state, self)
 
     def on_failure(self, exc):
         """

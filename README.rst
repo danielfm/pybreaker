@@ -16,7 +16,7 @@ Features
 
 * Configurable list of excluded exceptions (e.g. business exceptions)
 * Configurable failure threshold and reset timeout
-* Callback functions for state changes and failed/succeeded calls
+* Support for several event listeners per circuit breaker
 * Functions and properties for easy monitoring and management
 * Thread-safe
 
@@ -48,34 +48,16 @@ Usage
 -----
 
 The first step is to create an instance of ``CircuitBreaker`` for each
-integration point::
-
-    import pybreaker
-    db_breaker = pybreaker.CircuitBreaker()
-
-
-To allow better customization while keeping the code self contained, it's
-recommended to create subclasses of ``CircuitBreaker`` for each kind of
-integration point::
+integration point you want to protect against::
 
     import pybreaker
 
-    class DBCircuitBreaker(pybreaker.CircuitBreaker):
-        def on_state_change(self, old_state, new_state):
-            "Called when the circuit breaker state changes."
-            pass
-        def on_failure(self, exc):
-            "Called when a function invocation raises a system error."
-            pass
-        def on_success(self):
-            "Called when a function invocation succeeds."
-            pass
-
-    db_breaker = DBCircuitBreaker()
+    # Used in database integration points
+    db_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=60)
 
 
-These objects should live globally inside the application scope.
-
+``CircuitBreaker`` instances should live globally inside the application scope,
+e.g., live across requests.
 
 .. note::
   
@@ -83,6 +65,49 @@ These objects should live globally inside the application scope.
   more likely to fail, so make sure to always use timeouts when accessing such
   services if there's support at the API level.
 
+
+Event Listening
+```````````````
+
+There's no need to subclass ``CircuitBreaker`` if you just want to take action
+when certain events occur. In that case, it's better to subclass
+``CircuitBreakerListener`` instead::
+
+    class DBListener(pybreaker.CircuitBreakerListener):
+        "Listener used by circuit breakers that execute database operations."
+
+        def before_call(self, cb, func, *args, **kwargs):
+            "Called before the circuit breaker `cb` calls `func`."
+            pass
+
+        def state_change(self, cb, old_state, new_state):
+            "Called when the circuit breaker `cb` state changes."
+            pass
+
+        def failure(self, cb, exc):
+            "Called when a function invocation raises a system error."
+            pass
+
+        def success(self, cb):
+            "Called when a function invocation succeeds."
+            pass
+
+    class LogListener(pybreaker.CircuitBreakerListener):
+        "Listener used to log circuit breaker events."
+        pass
+
+
+To add listeners to a circuit breaker::
+
+    # At creation time...
+    db_breaker = pybreaker.CircuitBreaker(listeners=[DBListener(), LogListener()])
+
+    # ...or later
+    db_breaker.add_listeners(OneListener(), AnotherListener())
+
+
+What Does a Circuit Breaker Do?
+```````````````````````````````
 
 Let's say you want to use a circuit breaker on a function that updates a row
 in the ``customer`` database table::
@@ -106,9 +131,6 @@ Or if you don't want to use the decorator syntax::
     updated_customer = db_breaker.call(update_customer, my_customer)
 
 
-What Does a Circuit Breaker Do?
-```````````````````````````````
-
 According to the default parameters, the circuit breaker ``db_breaker`` will
 automatically open the circuit after 5 consecutive failures in
 ``update_customer``.
@@ -130,14 +152,14 @@ common to raise exceptions to also indicate business exceptions, and those
 exceptions should be ignored by the circuit breaker as they don't indicate
 system errors::
 
-    # At creation time
-    db_breaker = DBCircuitBreaker(exclude=(CustomerValidationError,))
+    # At creation time...
+    db_breaker = CircuitBreaker(exclude=[CustomerValidationError])
 
-    # At a later time
-    db_breaker.excluded_exceptions += (CustomerValidationError,)
+    # ...or later
+    db_breaker.add_excluded_exception(CustomerValidationError)
 
 
-In this case, when any function guarded by that circuit breaker raises
+In that case, when any function guarded by that circuit breaker raises
 ``CustomerValidationError`` (or any exception derived from
 ``CustomerValidationError``), that call won't be considered a system failure.
 
@@ -145,8 +167,8 @@ In this case, when any function guarded by that circuit breaker raises
 Monitoring and Management
 `````````````````````````
 
-A ``CircuitBreaker`` object provides properties and functions you can use to
-monitor and change its current state::
+A circuit breaker provides properties and functions you can use to monitor and
+change its current state::
 
     # Get the current number of consecutive failures
     print db_breaker.fail_counter
@@ -173,7 +195,7 @@ monitor and change its current state::
 
 
 These properties and functions might and should be exposed to the operations
-staff as they help them find problems in the system.
+staff somehow as they help them to detect problems in the system.
 
 
 .. _Python: http://python.org
