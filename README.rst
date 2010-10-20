@@ -35,7 +35,8 @@ PyBreaker from `PyPI`_::
 
     $ easy_install -U pybreaker
 
-`Git`_ users might want to download the current development version::
+If you are a `Git`_ user, you might want to download the current development
+version::
 
     $ git clone git://github.com/danielfm/pybreaker.git
     $ cd pybreaker
@@ -166,8 +167,8 @@ In that case, when any function guarded by that circuit breaker raises
 Monitoring and Management
 `````````````````````````
 
-A circuit breaker provides properties and functions that can be used to monitor
-and change its current state::
+A circuit breaker provides properties and functions you can use to monitor and
+change its current state::
 
     # Get the current number of consecutive failures
     print db_breaker.fail_counter
@@ -194,7 +195,7 @@ and change its current state::
 
 
 These properties and functions might and should be exposed to the operations
-staff somehow as they help them to detect and mitigate problems in the system.
+staff somehow as they help them to detect problems in the system.
 
 
 .. _Python: http://python.org
