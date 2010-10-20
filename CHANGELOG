@@ -1,7 +1,7 @@
 Changelog
 =========
 
-Version 0.2 (October 17, 2010)
+Version 0.1.1 (October 17, 2010)
 
 * Instance of CircuitBreaker can now be used as a decorator.
 * Python 2.6+ is now required in order to make the same code base compatible
