@@ -8,8 +8,6 @@ For more information on this and other patterns and best practices, buy the
 book at http://pragprog.com/titles/mnee/release-it
 """
 
-import __future__
-
 from datetime import datetime, timedelta
 from functools import wraps
 
