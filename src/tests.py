@@ -363,10 +363,19 @@ class CircuitBreakerTestCase(unittest.TestCase):
         """CircuitBreaker: it should be a decorator.
         """
         @self.breaker
-        def suc(value): return value
+        def suc(value):
+            "Docstring"
+            return value
 
         @self.breaker
-        def err(value): raise NotImplementedError()
+        def err(value):
+            "Docstring"
+            raise NotImplementedError()
+
+        self.assertEqual('Docstring', suc.__doc__)
+        self.assertEqual('Docstring', err.__doc__)
+        self.assertEqual('suc', suc.__name__)
+        self.assertEqual('err', err.__name__)
 
         self.assertRaises(NotImplementedError, err, True)
         self.assertEqual(1, self.breaker.fail_counter)

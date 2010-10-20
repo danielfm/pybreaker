@@ -11,6 +11,8 @@ book at http://pragprog.com/titles/mnee/release-it
 import __future__
 
 from datetime import datetime, timedelta
+from functools import wraps
+
 import threading
 
 __all__ = ('CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError',)
@@ -192,6 +194,7 @@ class CircuitBreaker(object):
         Returns a wrapper that calls the function `func` according to the rules
         implemented by the current state of this circuit breaker.
         """
+        @wraps(func)
         def _wrapper(*args, **kwargs):
             return self.call(func, *args, **kwargs)
         return _wrapper
