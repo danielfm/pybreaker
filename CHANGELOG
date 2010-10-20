@@ -1,11 +1,13 @@
 Changelog
 =========
 
-Version 0.2 (October xx, xxxx)
+Version 0.2 (October 20, 2010)
 
-* Several API changes.
+* Several API changes, breaks backwards compatibility.
 * New CircuitBreakerListener class that allows the user to listen to events in
   a circuit breaker without the need to subclass CircuitBreaker.
+* Decorator now uses 'functools.wraps' to avoid loss of information on decorated
+  functions.
 
 
 Version 0.1.1 (October 17, 2010)
