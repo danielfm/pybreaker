@@ -146,10 +146,10 @@ class CircuitBreakerTestCase(unittest.TestCase):
         # Wait for timeout
         sleep(0.6)
 
-        # Circuit should be half-open
-        self.assertRaises(NotImplementedError, self.breaker.call, func)
+        # Circuit should open again
+        self.assertRaises(CircuitBreakerError, self.breaker.call, func)
         self.assertEqual(4, self.breaker.fail_counter)
-        self.assertEqual('half-open', self.breaker.current_state)
+        self.assertEqual('open', self.breaker.current_state)
 
     def test_successful_after_timeout(self):
         """CircuitBreaker: it should close the circuit when a call succeeds after timeout.
@@ -171,10 +171,10 @@ class CircuitBreakerTestCase(unittest.TestCase):
         # Wait for timeout
         sleep(0.6)
 
-        # Circuit should be half-open
+        # Circuit should close again
         self.assertTrue(self.breaker.call(suc))
         self.assertEqual(0, self.breaker.fail_counter)
-        self.assertEqual('half-open', self.breaker.current_state)
+        self.assertEqual('closed', self.breaker.current_state)
 
     def test_failed_call_when_halfopen(self):
         """CircuitBreaker: it should open the circuit when a call fails in half-open state.

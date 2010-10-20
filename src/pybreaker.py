@@ -312,7 +312,7 @@ class CircuitBreakerState(object):
         """
         ret = None
 
-        self.before_call()
+        self.before_call(func, *args, **kwargs)
         for listener in self._breaker.listeners:
             listener.before_call(self._breaker, func, *args, **kwargs)
 
@@ -324,7 +324,7 @@ class CircuitBreakerState(object):
             self._breaker.synchronized(self._handle_success)
         return ret
 
-    def before_call(self):
+    def before_call(self, func, *args, **kwargs):
         """
         Override this method to be notified before a call to the guarded
         operation is attempted.
@@ -396,7 +396,7 @@ class CircuitOpenState(CircuitBreakerState):
             for listener in self._breaker.listeners:
                 listener.state_change(self._breaker, prev_state, self)
 
-    def before_call(self):
+    def before_call(self, func, *args, **kwargs):
         """
         After the timeout elapses, move the circuit breaker to the "half-open"
         state; otherwise, raises ``CircuitBreakerError`` without any attempt
@@ -406,7 +406,10 @@ class CircuitOpenState(CircuitBreakerState):
         if datetime.now() < self.opened_at + timeout:
             raise CircuitBreakerError('Timeout not elapsed yet, circuit breaker still open')
         else:
-            self._breaker.half_open()
+            def _trial_call():
+                self._breaker.half_open()
+                self._breaker.call(func, *args, **kwargs)
+            self._breaker.synchronized(_trial_call)
 
 
 class CircuitHalfOpenState(CircuitBreakerState):
