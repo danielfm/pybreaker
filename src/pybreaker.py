@@ -360,7 +360,7 @@ class CircuitClosedState(CircuitBreakerState):
         """
         Moves the given circuit breaker `cb` to the "closed" state.
         """
-        CircuitBreakerState.__init__(self, cb, 'closed')
+        super(CircuitClosedState, self).__init__(cb, 'closed')
         self._breaker._fail_counter = 0
         if notify:
             for listener in self._breaker.listeners:
@@ -390,7 +390,7 @@ class CircuitOpenState(CircuitBreakerState):
         """
         Moves the given circuit breaker `cb` to the "open" state.
         """
-        CircuitBreakerState.__init__(self, cb, 'open')
+        super(CircuitOpenState, self).__init__(cb, 'open')
         self.opened_at = datetime.now()
         if notify:
             for listener in self._breaker.listeners:
@@ -425,7 +425,7 @@ class CircuitHalfOpenState(CircuitBreakerState):
         """
         Moves the given circuit breaker `cb` to the "half-open" state.
         """
-        CircuitBreakerState.__init__(self, cb, 'half-open')
+        super(CircuitHalfOpenState, self).__init__(cb, 'half-open')
         if notify:
             for listener in self._breaker._listeners:
                 listener.state_change(self._breaker, prev_state, self)
