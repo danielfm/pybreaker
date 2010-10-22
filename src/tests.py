@@ -2,11 +2,9 @@
 #-*- coding:utf-8 -*-
 
 from pybreaker import *
-
 from random import random
 from time import sleep
 
-import threading
 import unittest
 
 
@@ -382,6 +380,75 @@ class CircuitBreakerTestCase(unittest.TestCase):
 
         self.assertTrue(suc(True))
         self.assertEqual(0, self.breaker.fail_counter)
+
+
+import threading
+from types import MethodType
+
+class CircuitBreakerThreadsTestCase(unittest.TestCase):
+    """
+    Tests to reproduce common synchronization errors on CircuitBreaker class.
+    """
+
+    def setUp(self):
+        self.breaker = CircuitBreaker(fail_max=3000, reset_timeout=0.3)
+
+    def _start_threads(self, target, n):
+        """
+        Starts `n` threads that calls `target` and waits for them to finish.
+        """
+        threads = [threading.Thread(target=target) for i in range(n)]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+
+    def _mock_function(self, func_name, func):
+        """
+        Replaces a bounded function in `self.breaker` by another.
+        """
+        bounded_func = MethodType(func, self.breaker, type(self.breaker))
+        setattr(self.breaker, func_name, bounded_func)
+
+    def test_fail_thread_safety(self):
+        """CircuitBreaker: it should compute a failed call atomically to avoid race conditions.
+        """
+        @self.breaker
+        def err(): raise Exception()
+
+        def _trigger_error():
+            for n in range(500):
+                try: err()
+                except: pass
+
+        def _slow_inc(self):
+            c = self._fail_counter
+            sleep(0.00005)
+            self._fail_counter = c + 1
+
+        self._mock_function('_inc_counter', _slow_inc)
+        self._start_threads(_trigger_error, 3)
+        self.assertEqual(1500, self.breaker.fail_counter)
+
+    def test_success_thread_safety(self):
+        """CircuitBreaker: it should compute a successful call atomically to avoid race conditions.
+        """
+        @self.breaker
+        def suc(): return True
+
+        def _trigger_success():
+            for n in range(500):
+                suc()
+
+        class _SuccessListener(CircuitBreakerListener):
+            def success(self, cb):
+                c = 0
+                if hasattr(cb, '_success_counter'):
+                    c = cb._success_counter
+                sleep(0.00005)
+                cb._success_counter = c + 1
+
+        self.breaker.add_listener(_SuccessListener())
+        self._start_threads(_trigger_success, 3)
+        self.assertEqual(1500, self.breaker._success_counter)
 
 
 if __name__ == '__main__':
