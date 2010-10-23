@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.2.1 (October 23, 2010)
+
+* Fixed a few concurrency bugs.
+
+
 Version 0.2 (October 20, 2010)
 
 * Several API changes, breaks backwards compatibility.
