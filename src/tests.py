@@ -391,7 +391,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
     """
 
     def setUp(self):
-        self.breaker = CircuitBreaker(fail_max=3000, reset_timeout=0.3)
+        self.breaker = CircuitBreaker(fail_max=3000, reset_timeout=1)
 
     def _start_threads(self, target, n):
         """
@@ -414,18 +414,18 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         @self.breaker
         def err(): raise Exception()
 
-        def _trigger_error():
+        def trigger_error():
             for n in range(500):
                 try: err()
                 except: pass
 
-        def _slow_inc(self):
+        def slow_inc(self):
             c = self._fail_counter
             sleep(0.00005)
             self._fail_counter = c + 1
 
-        self._mock_function('_inc_counter', _slow_inc)
-        self._start_threads(_trigger_error, 3)
+        self._mock_function('_inc_counter', slow_inc)
+        self._start_threads(trigger_error, 3)
         self.assertEqual(1500, self.breaker.fail_counter)
 
     def test_success_thread_safety(self):
@@ -434,11 +434,11 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         @self.breaker
         def suc(): return True
 
-        def _trigger_success():
+        def trigger_success():
             for n in range(500):
                 suc()
 
-        class _SuccessListener(CircuitBreakerListener):
+        class SuccessListener(CircuitBreakerListener):
             def success(self, cb):
                 c = 0
                 if hasattr(cb, '_success_counter'):
@@ -446,9 +446,61 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
                 sleep(0.00005)
                 cb._success_counter = c + 1
 
-        self.breaker.add_listener(_SuccessListener())
-        self._start_threads(_trigger_success, 3)
+        self.breaker.add_listener(SuccessListener())
+        self._start_threads(trigger_success, 3)
         self.assertEqual(1500, self.breaker._success_counter)
+
+    def test_half_open_thread_safety(self):
+        """CircuitBreaker: it should allow only one trial call when the circuit is half-open.
+        """
+        self.breaker = CircuitBreaker(fail_max=1, reset_timeout=0.01)
+
+        self.breaker.open()
+        sleep(0.01)
+
+        @self.breaker
+        def err(): raise Exception()
+
+        def trigger_failure():
+            try: err()
+            except: pass
+
+        class StateListener(CircuitBreakerListener):
+            def __init__(self):
+                self._count = 0
+
+            def before_call(self, cb, fun, *args, **kwargs):
+                sleep(0.00005)
+
+            def state_change(self, cb, old_state, new_state):
+                if new_state.name == 'half-open':
+                    self._count += 1
+
+        state_listener = StateListener()
+        self.breaker.add_listener(state_listener)
+
+        self._start_threads(trigger_failure, 5)
+        self.assertEqual(1, state_listener._count)
+
+
+    def test_fail_max_thread_safety(self):
+        """CircuitBreaker: it should not allow more failed calls than 'fail_max' setting.
+        """
+        @self.breaker
+        def err(): raise Exception()
+
+        def trigger_error():
+            for i in range(2000):
+                try: err()
+                except: pass
+
+        class SleepListener(CircuitBreakerListener):
+            def before_call(self, cb, func, *args, **kwargs):
+                sleep(0.00005)
+
+        self.breaker.add_listener(SleepListener())
+        self._start_threads(trigger_error, 3)
+        self.assertEqual(self.breaker.fail_max, self.breaker.fail_counter)
 
 
 if __name__ == '__main__':

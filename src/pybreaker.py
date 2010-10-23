@@ -148,7 +148,8 @@ class CircuitBreaker(object):
         Calls `func` with the given `args` and `kwargs` according to the rules
         implemented by the current state of this circuit breaker.
         """
-        return self._state.call(func, *args, **kwargs)
+        with self._lock:
+            return self._state.call(func, *args, **kwargs)
 
     def open(self):
         """
@@ -303,11 +304,9 @@ class CircuitBreakerState(object):
         try:
             ret = func(*args, **kwargs)
         except BaseException as e:
-            with self._breaker._lock:
-                self._handle_error(e)
+            self._handle_error(e)
         else:
-            with self._breaker._lock:
-                self._handle_success()
+            self._handle_success()
         return ret
 
     def before_call(self, func, *args, **kwargs):
@@ -392,9 +391,8 @@ class CircuitOpenState(CircuitBreakerState):
         if datetime.now() < self.opened_at + timeout:
             raise CircuitBreakerError('Timeout not elapsed yet, circuit breaker still open')
         else:
-            with self._breaker._lock:
-                self._breaker.half_open()
-                self._breaker.call(func, *args, **kwargs)
+            self._breaker.half_open()
+            self._breaker.call(func, *args, **kwargs)
 
 
 class CircuitHalfOpenState(CircuitBreakerState):
