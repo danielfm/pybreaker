@@ -401,12 +401,11 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         [t.start() for t in threads]
         [t.join() for t in threads]
 
-    def _mock_function(self, func_name, func):
+    def _mock_function(self, obj, func):
         """
         Replaces a bounded function in `self.breaker` by another.
         """
-        bounded_func = MethodType(func, self.breaker, type(self.breaker))
-        setattr(self.breaker, func_name, bounded_func)
+        setattr(obj, func.__name__, MethodType(func, self.breaker))
 
     def test_fail_thread_safety(self):
         """CircuitBreaker: it should compute a failed call atomically to avoid race conditions.
@@ -419,12 +418,12 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
                 try: err()
                 except: pass
 
-        def slow_inc(self):
+        def _inc_counter(self):
             c = self._fail_counter
             sleep(0.00005)
             self._fail_counter = c + 1
 
-        self._mock_function('_inc_counter', slow_inc)
+        self._mock_function(self.breaker, _inc_counter)
         self._start_threads(trigger_error, 3)
         self.assertEqual(1500, self.breaker.fail_counter)
 
