@@ -35,7 +35,7 @@ class CircuitBreaker(object):
         self._lock = threading.RLock()
         self._fail_counter = 0
         self._state = CircuitClosedState(self)
-        
+
         self._fail_max = fail_max
         self._reset_timeout = reset_timeout
 
