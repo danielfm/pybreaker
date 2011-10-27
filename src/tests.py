@@ -217,7 +217,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
     def test_failed_call_after_timeout(self):
         """CircuitBreaker: it should half-open the circuit after timeout.
         """
-        self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.5)
+        self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.01)
         def func(): raise NotImplementedError()
 
         self.assertRaises(NotImplementedError, self.breaker.call, func)
@@ -229,7 +229,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(3, self.breaker.fail_counter)
 
         # Wait for timeout
-        sleep(0.6)
+        sleep(0.05)
 
         # Circuit should open again
         self.assertRaises(CircuitBreakerError, self.breaker.call, func)
@@ -239,7 +239,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
     def test_successful_after_timeout(self):
         """CircuitBreaker: it should close the circuit when a call succeeds after timeout.
         """
-        self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.5)
+        self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.01)
 
         def suc(): return True
         def err(): raise NotImplementedError()
@@ -254,7 +254,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(3, self.breaker.fail_counter)
 
         # Wait for timeout
-        sleep(0.6)
+        sleep(0.05)
 
         # Circuit should close again
         self.assertTrue(self.breaker.call(suc))
