@@ -19,6 +19,7 @@ Features
 * Support for several event listeners per circuit breaker
 * Functions and properties for easy monitoring and management
 * Thread-safe
+* Parameterized circuit breakers (so that a single breaker instance can manage data-defined integration points)
 
 
 Requirements

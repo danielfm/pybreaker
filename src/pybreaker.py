@@ -10,10 +10,48 @@ book at http://pragprog.com/titles/mnee/release-it
 
 from datetime import datetime, timedelta
 from functools import wraps
+from collections import defaultdict
 
 import threading
 
-__all__ = ('CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError',)
+__all__ = ('ParameterizedCircuitBreaker', 'CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError',)
+
+
+class ParameterizedCircuitBreaker(object):
+    """
+    Defines a set of circuit breakers to be used depending on the parameters of
+    the call they protect
+    """
+
+    def __init__(self, fail_max=5, reset_timeout=60, exclude=None, listeners=None):
+        def breaker():
+            return CircuitBreaker(fail_max, reset_timeout, exclude, listeners)
+
+        self.circuit_breakers = defaultdict(breaker)
+
+    def call(self, func, params=None, *args, **kwargs):
+        """
+        Calls `call` method of the circuit breaker specified by `params`,
+        using passing it the other arguments. `params` must be hashable
+        """
+        return self.circuit_breakers[params].call(func, *args, **kwargs)
+
+    def __call__(self, arg_params=[], kwarg_params=[]):
+        """
+        Returns a wrapper that calls the function `func` according to the rules
+        implemented by the current state of this circuit breaker.
+
+        The parameters used to find the circuit breaker to use are
+        the elements of args, indexed by the indices in arg_params,
+        and the elements of kwargs, indexed by the indiceds of kwarg_params.
+        """
+        def wrapper(func):
+            @wraps(func)
+            def _wrapper(*args, **kwargs):
+                params = (tuple(args[idx] for idx in arg_params), tuple((idx, kwargs.get(idx)) for idx in kwarg_params))
+                return self.call(func, params, *args, **kwargs)
+            return _wrapper
+        return wrapper
 
 
 class CircuitBreaker(object):
