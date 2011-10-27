@@ -79,6 +79,21 @@ class ParameterizedCircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(0, breakers[key].fail_counter)
         self.assertEqual('closed', breakers[key].current_state)
 
+    def test_custom_exception_parameters_set(self):
+        """ParameterizedCircuitBreaker: it should set the params on the custom exceptions raised
+        """
+        class CustomError(CircuitBreakerError):
+            pass
+
+        self.param_breaker = ParameterizedCircuitBreaker(fail_max=3, exception=CustomError)
+        def func(): raise NotImplementedError()
+        self.assertRaises(NotImplementedError, self.param_breaker.call, func, 'fail')
+        self.assertRaises(NotImplementedError, self.param_breaker.call, func, 'fail')
+        try:
+            self.param_breaker.call(func, 'fail')
+        except CustomError as exc:
+            self.assertEquals('fail', exc.params)
+
 
 class CircuitBreakerTestCase(unittest.TestCase):
     """
@@ -428,6 +443,52 @@ class CircuitBreakerTestCase(unittest.TestCase):
 
         self.breaker.remove_excluded_exception(NotImplementedError)
         self.assertEqual((), self.breaker.excluded_exceptions)
+
+    def test_raise_custom_exception_on_open(self):
+        """CircuitBreaker: it should raise custom exceptions during open
+        """
+        class CustomError(CircuitBreakerError):
+            pass
+
+        self.breaker = CircuitBreaker(fail_max=3, exception=CustomError)
+        def func(): raise NotImplementedError()
+
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+
+        # Circuit should open
+        self.assertRaises(CustomError, self.breaker.call, func)
+
+    def test_raise_custom_exception_while_open(self):
+        class CustomError(CircuitBreakerError):
+            pass
+
+        self.breaker = CircuitBreaker(fail_max=3, exception=CustomError)
+        def func(): raise NotImplementedError()
+
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+
+        # Circuit should open
+        self.assertRaises(CustomError, self.breaker.call, func)
+        self.assertEqual('open', self.breaker.current_state)
+        self.assertRaises(CustomError, self.breaker.call, func)
+
+    def test_raise_custom_exception_on_half_open_fail(self):
+        class CustomError(CircuitBreakerError):
+            pass
+
+        self.breaker = CircuitBreaker(fail_max=3, exception=CustomError, reset_timeout=.01)
+        def func(): raise NotImplementedError()
+
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+
+        # Circuit should open
+        self.assertRaises(CustomError, self.breaker.call, func)
+        
+        sleep(.05)
+        self.assertRaises(CustomError, self.breaker.call, func)
 
     def test_decorator(self):
         """CircuitBreaker: it should be a decorator.
