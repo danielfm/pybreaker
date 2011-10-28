@@ -95,6 +95,25 @@ class ParameterizedCircuitBreakerTestCase(unittest.TestCase):
         except CustomError as exc:
             self.assertEquals('fail', exc.params)
 
+    def test_custom_exception_parameters_set_context_manager(self):
+        """ParameterizedCircuitBreaker: it should set the params on the custom exceptions raised, even with a context manager
+        """
+        class CustomError(CircuitBreakerError):
+            pass
+
+        self.param_breaker = ParameterizedCircuitBreaker(fail_max=3, exception=CustomError)
+
+        def fail_breaker():
+            with self.param_breaker.context('fail'):
+                raise NotImplementedError()
+
+        self.assertRaises(NotImplementedError, fail_breaker)
+        self.assertRaises(NotImplementedError, fail_breaker)
+        try:
+            fail_breaker()
+        except CustomError as exc:
+            self.assertEquals('fail', exc.params)
+
 
 class CircuitBreakerTestCase(unittest.TestCase):
     """
@@ -504,6 +523,25 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         Replaces a bounded function in `self.breaker` by another.
         """
         setattr(obj, func.__name__, MethodType(func, self.breaker))
+
+    def test_fail_thread_safety_context_manager(self):
+        """CircuitBreaker: it should compute a failed call atomically to avoid race conditions, even when using context manager
+        """
+        def trigger_error():
+            for n in range(500):
+                try:
+                    with self.breaker.context():
+                        raise Exception()
+                except: pass
+
+        def _inc_counter(self):
+            c = self._fail_counter
+            sleep(0.00005)
+            self._fail_counter = c + 1
+
+        self._mock_function(self.breaker, _inc_counter)
+        self._start_threads(trigger_error, 3)
+        self.assertEqual(1500, self.breaker.fail_counter)
 
     def test_fail_thread_safety(self):
         """CircuitBreaker: it should compute a failed call atomically to avoid race conditions.

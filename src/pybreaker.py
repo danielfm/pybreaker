@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from collections import defaultdict
 from fluidity import StateMachine, state, transition
-from traceback import format_stack
+from contextlib import contextmanager
 
 import threading
 
@@ -35,22 +35,38 @@ class ParameterizedCircuitBreaker(object):
     """
 
     def __init__(self, fail_max=5, reset_timeout=60, exclude=None, listeners=None, exception=CircuitBreakerError):
-        def breaker():
-            return CircuitBreaker(fail_max, reset_timeout, exclude, listeners, exception)
-
-        self.circuit_breakers = defaultdict(breaker)
+        self.circuit_breakers = {}
+        self._fail_max = fail_max
+        self._reset_timeout = reset_timeout
+        self._exclude = exclude
+        self._listeners = listeners
         self._exception = exception
+
+    def get_breaker(self, params):
+        """
+        Return the circuit_breaker for these parameters, creating it if it doesn't exist
+        """
+        if params in self.circuit_breakers:
+            return self.circuit_breakers[params]
+        else:
+            def exception(*args, **kwargs):
+                exc = self._exception(*args, **kwargs)
+                exc.params = params
+                return exc
+            return self.circuit_breakers.setdefault(params,
+                    CircuitBreaker(
+                        self._fail_max,
+                        self._reset_timeout,
+                        self._exclude,
+                        self._listeners,
+                        exception))
 
     def call(self, func, params=None, *args, **kwargs):
         """
         Calls `call` method of the circuit breaker specified by `params`,
         using passing it the other arguments. `params` must be hashable
         """
-        try:
-            return self.circuit_breakers[params].call(func, *args, **kwargs)
-        except self._exception as exc:
-            exc.params = params
-            raise
+        return self.get_breaker(params).call(func, *args, **kwargs)
 
     def __call__(self, arg_params=[], kwarg_params=[]):
         """
@@ -69,6 +85,8 @@ class ParameterizedCircuitBreaker(object):
             return _wrapper
         return wrapper
 
+    def context(self, params=None):
+        return self.get_breaker(params).context()
 
 
 class UnsafeCircuitBreaker(StateMachine):
@@ -163,24 +181,29 @@ class UnsafeCircuitBreaker(StateMachine):
             return self.call(func, *args, **kwargs)
         return _wrapper
 
+    @contextmanager
+    def context(self):
+        """
+        Enable a CircuitBreaker to be used as a context manager
+        """
+        self.attempt()
+        try:
+            yield
+        except BaseException as exc:
+            self._handle_error(exc)
+        else:
+            self._handle_success()
+
     def call(self, func, *args, **kwargs):
         """
         Calls `func` with the given `args` and `kwargs` according to the rules
         implemented by the current state of this circuit breaker.
         """
-        ret = None
+        with self.context():
+            for listener in self.listeners:
+                listener.before_call(self, func, *args, **kwargs)
 
-        self.attempt()
-        for listener in self.listeners:
-            listener.before_call(self, func, *args, **kwargs)
-
-        try:
-            ret = func(*args, **kwargs)
-        except BaseException as exc:
-            self._handle_error(exc)
-        else:
-            self._handle_success()
-        return ret
+            return func(*args, **kwargs)
 
     def _handle_error(self, exc):
         """
@@ -193,7 +216,7 @@ class UnsafeCircuitBreaker(StateMachine):
                 listener.failure(self, exc)
         else:
             self._handle_success()
-        raise exc
+        raise
 
     def _handle_success(self):
         """
@@ -283,6 +306,13 @@ class CircuitBreaker(object):
             with self._lock:
                 return cb_wrapped(*args, **kwargs)
         return wrapper
+
+    @wraps(UnsafeCircuitBreaker.context)
+    @contextmanager
+    def context(self):
+        with self._lock:
+            with self.cb.context():
+                yield
 
     def __getattr__(self, name):
         return getattr(self.cb, name)
