@@ -515,6 +515,26 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertTrue(suc(True))
         self.assertEqual(0, self.breaker.fail_counter)
 
+    def test_forced_open(self):
+        """CircuitBreaker: when forced_open, it should always raise a circuit_breaker exception
+        """
+        self.breaker.force_open()
+        def suc(): return True
+        def err(): raise NotImplementedError()
+
+        self.assertRaises(CircuitBreakerError, self.breaker.call, suc)
+        self.assertRaises(CircuitBreakerError, self.breaker.call, err)
+
+    def test_forced_closed(self):
+        """CircuitBreaker: when forced_closed, it should never raise a circuit_breaker exception
+        """
+        self.breaker.force_closed()
+        def suc(): return True
+        def err(): raise NotImplementedError()
+
+        self.assertTrue(self.breaker.call(suc))
+        for i in xrange(100):
+            self.assertRaises(NotImplementedError, self.breaker.call, err)
 
 import threading
 from types import MethodType

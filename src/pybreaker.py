@@ -82,7 +82,7 @@ class UnsafeCircuitBreaker(StateMachine):
     This pattern is described by Michael T. Nygard in his book 'Release It!'.
     """
 
-    STATES = ['open', 'closed', 'half_open']
+    STATES = ['open', 'closed', 'half_open', 'forced_open', 'forced_closed']
 
     initial_state = 'closed'
     for _state in STATES:
@@ -109,11 +109,19 @@ class UnsafeCircuitBreaker(StateMachine):
     transition(from_='half_open', event='success', to='closed',
         action='reset_count')
 
-    transition(from_=STATES, event='open',      to='open',
+    transition(from_='forced_open', event='attempt', to='forced_open',
+        action='raise_breaker_exception')
+    
+    for event in ['attempt', 'success', 'error']:
+        transition(from_='forced_closed', event=event, to='forced_closed')
+
+    transition(from_=STATES, event='open',         to='open',
         action='reset_timer')
-    transition(from_=STATES, event='close',     to='closed',
+    transition(from_=STATES, event='close',        to='closed',
         action='reset_count')
-    transition(from_=STATES, event='half_open', to='half_open')
+    transition(from_=STATES, event='half_open',    to='half_open')
+    transition(from_=STATES, event='force_open',   to='forced_open')
+    transition(from_=STATES, event='force_closed', to='forced_closed')
 
     def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
             listeners=None, exception=CircuitBreakerError):
