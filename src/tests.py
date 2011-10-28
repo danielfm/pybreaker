@@ -42,6 +42,7 @@ class ParameterizedCircuitBreakerTestCase(unittest.TestCase):
         self.assertRaises(NotImplementedError, self.param_breaker.call, fail_func, 'fail')
         self.assertRaises(NotImplementedError, self.param_breaker.call, fail_func, 'fail')
         self.assertRaises(CircuitBreakerError, self.param_breaker.call, fail_func, 'fail')
+        
         self.assertEqual(5, breakers['fail'].fail_counter)
         self.assertEqual('open',breakers['fail'].current_state)
         self.assertEqual(0, breakers['pass'].fail_counter)
@@ -268,7 +269,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
 
         self.breaker.half_open()
         self.assertEqual(0, self.breaker.fail_counter)
-        self.assertEqual('half-open', self.breaker.current_state)
+        self.assertEqual('half_open', self.breaker.current_state)
 
         # Circuit should open
         self.assertRaises(CircuitBreakerError, self.breaker.call, fun)
@@ -282,7 +283,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
 
         self.breaker.half_open()
         self.assertEqual(0, self.breaker.fail_counter)
-        self.assertEqual('half-open', self.breaker.current_state)
+        self.assertEqual('half_open', self.breaker.current_state)
 
         # Circuit should open
         self.assertTrue(self.breaker.call(fun))
@@ -318,8 +319,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
 
             def state_change(self, cb, old_state, new_state):
                 assert cb
-                if old_state: self.out += old_state.name
-                if new_state: self.out += '->' + new_state.name
+                if old_state: self.out += old_state
+                if new_state: self.out += '->' + new_state
                 self.out += ','
 
         listener = Listener()
@@ -330,12 +331,12 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual('open', self.breaker.current_state)
 
         self.breaker.half_open()
-        self.assertEqual('half-open', self.breaker.current_state)
+        self.assertEqual('half_open', self.breaker.current_state)
 
         self.breaker.close()
         self.assertEqual('closed', self.breaker.current_state)
 
-        self.assertEqual('closed->open,open->half-open,half-open->closed,', listener.out)
+        self.assertEqual('closed->open,open->half_open,half_open->closed,', listener.out)
 
     def test_call_events(self):
         """CircuitBreaker: it should call the appropriate functions on every successful/failed call.
@@ -605,7 +606,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
                 sleep(0.00005)
 
             def state_change(self, cb, old_state, new_state):
-                if new_state.name == 'half-open':
+                if new_state == 'half_open':
                     self._count += 1
 
         state_listener = StateListener()
