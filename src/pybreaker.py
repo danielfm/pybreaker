@@ -131,12 +131,12 @@ class UnsafeCircuitBreaker(StateMachine):
         super(UnsafeCircuitBreaker, self).__init__()
         self._fail_counter = 0
 
-        self._fail_max = fail_max
-        self._reset_timeout = reset_timeout
+        self.fail_max = fail_max
+        self.reset_timeout = reset_timeout
 
-        self._excluded_exceptions = list(exclude or [])
-        self._listeners = list(listeners or [])
-        self._exception = exception
+        self.excluded_exceptions = list(exclude or [])
+        self.listeners = list(listeners or [])
+        self.exception = exception
 
     def changing_state(self, from_, to):
         """
@@ -153,65 +153,6 @@ class UnsafeCircuitBreaker(StateMachine):
 
         return self._fail_counter
 
-    @property
-    def fail_max(self):
-        """
-        Returns the maximum number of failures tolerated before the circuit is
-        opened.
-        """
-        return self._fail_max
-
-    @fail_max.setter
-    def fail_max(self, number):
-        """
-        Sets the maximum `number` of failures tolerated before the circuit is
-        opened.
-        """
-        self._fail_max = number
-
-    @property
-    def reset_timeout(self):
-        """
-        Once this circuit breaker is opened, it should remain opened until the
-        timeout period, in seconds, elapses.
-        """
-        return self._reset_timeout
-
-    @reset_timeout.setter
-    def reset_timeout(self, timeout):
-        """
-        Sets the `timeout` period, in seconds, this circuit breaker should be
-        kept open.
-        """
-        self._reset_timeout = timeout
-
-    @property
-    def excluded_exceptions(self):
-        """
-        Returns the list of excluded exceptions, e.g., exceptions that should
-        not be considered system errors by this circuit breaker.
-        """
-        return tuple(self._excluded_exceptions)
-
-    def add_excluded_exception(self, exception):
-        """
-        Adds an exception to the list of excluded exceptions.
-        """
-        self._excluded_exceptions.append(exception)
-
-    def add_excluded_exceptions(self, *exceptions):
-        """
-        Adds exceptions to the list of excluded exceptions.
-        """
-        for exc in exceptions:
-            self.add_excluded_exception(exc)
-
-    def remove_excluded_exception(self, exception):
-        """
-        Removes an exception from the list of excluded exceptions.
-        """
-        self._excluded_exceptions.remove(exception)
-
     def is_system_error(self, exception):
         """
         Returns whether the exception `exception` is considered a signal of
@@ -219,7 +160,7 @@ class UnsafeCircuitBreaker(StateMachine):
         breaker to open.
         """
         texc = type(exception)
-        for exc in self._excluded_exceptions:
+        for exc in self.excluded_exceptions:
             if issubclass(texc, exc):
                 return False
         return True
@@ -274,32 +215,6 @@ class UnsafeCircuitBreaker(StateMachine):
             return self.call(func, *args, **kwargs)
         return _wrapper
 
-    @property
-    def listeners(self):
-        """
-        Returns the registered listeners as a tuple.
-        """
-        return tuple(self._listeners)
-
-    def add_listener(self, listener):
-        """
-        Registers a listener for this circuit breaker.
-        """
-        self._listeners.append(listener)
-
-    def add_listeners(self, *listeners):
-        """
-        Registers listeners for this circuit breaker.
-        """
-        for listener in listeners:
-            self.add_listener(listener)
-
-    def remove_listener(self, listener):
-        """
-        Unregisters a listener of this circuit breaker.
-        """
-        self._listeners.remove(listener)
-
     def reset_count(self):
         """
         An action that resets the failure count
@@ -316,7 +231,7 @@ class UnsafeCircuitBreaker(StateMachine):
         """
         A guard that returns True if failure count has exceeded the allowed maximum
         """
-        return self._fail_counter >= self._fail_max
+        return self._fail_counter >= self.fail_max
 
     def reset_timer(self):
         """
@@ -328,7 +243,7 @@ class UnsafeCircuitBreaker(StateMachine):
         """
         An action that raises the breaker exception
         """
-        raise self._exception()
+        raise self.exception()
 
     def timeout_elapsed(self):
         """

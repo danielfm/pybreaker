@@ -111,7 +111,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(60, self.breaker.reset_timeout)
         self.assertEqual(5, self.breaker.fail_max)
         self.assertEqual('closed', self.breaker.current_state)
-        self.assertEqual((), self.breaker.excluded_exceptions)
+        self.assertEqual([], self.breaker.excluded_exceptions)
 
     def test_new_with_custom_reset_timeout(self):
         """CircuitBreaker: it should support a custom reset timeout value.
@@ -120,7 +120,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(0, self.breaker.fail_counter)
         self.assertEqual(30, self.breaker.reset_timeout)
         self.assertEqual(5, self.breaker.fail_max)
-        self.assertEqual((), self.breaker.excluded_exceptions)
+        self.assertEqual([], self.breaker.excluded_exceptions)
 
     def test_new_with_custom_fail_max(self):
         """CircuitBreaker: it should support a custom maximum number of failures.
@@ -129,7 +129,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(0, self.breaker.fail_counter)
         self.assertEqual(60, self.breaker.reset_timeout)
         self.assertEqual(10, self.breaker.fail_max)
-        self.assertEqual((), self.breaker.excluded_exceptions)
+        self.assertEqual([], self.breaker.excluded_exceptions)
 
     def test_new_with_custom_excluded_exceptions(self):
         """CircuitBreaker: it should support a custom list of excluded exceptions.
@@ -138,7 +138,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(0, self.breaker.fail_counter)
         self.assertEqual(60, self.breaker.reset_timeout)
         self.assertEqual(5, self.breaker.fail_max)
-        self.assertEqual((Exception,), self.breaker.excluded_exceptions)
+        self.assertEqual([Exception], self.breaker.excluded_exceptions)
 
     def test_fail_max_setter(self):
         """CircuitBreaker: it should allow the user to set a new value for 'fail_max'.
@@ -366,36 +366,6 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertRaises(NotImplementedError, self.breaker.call, err)
         self.assertEqual('-success-failure', listener.out)
 
-    def test_add_listener(self):
-        """CircuitBreaker: it should allow the user to add a listener at a later time.
-        """
-        self.assertEqual((), self.breaker.listeners)
-
-        first = CircuitBreakerListener()
-        self.breaker.add_listener(first)
-        self.assertEqual((first,), self.breaker.listeners)
-
-        second = CircuitBreakerListener()
-        self.breaker.add_listener(second)
-        self.assertEqual((first, second), self.breaker.listeners)
-
-    def test_add_listeners(self):
-        """CircuitBreaker: it should allow the user to add listeners at a later time.
-        """
-        first, second = CircuitBreakerListener(), CircuitBreakerListener()
-        self.breaker.add_listeners(first, second)
-        self.assertEqual((first, second), self.breaker.listeners)
-
-    def test_remove_listener(self):
-        """CircuitBreaker: it should allow the user to remove a listener.
-        """
-        first = CircuitBreakerListener()
-        self.breaker.add_listener(first)
-        self.assertEqual((first,), self.breaker.listeners)
-
-        self.breaker.remove_listener(first)
-        self.assertEqual((), self.breaker.listeners)
-
     def test_excluded_exceptions(self):
         """CircuitBreaker: it should ignore specific exceptions.
         """
@@ -418,32 +388,6 @@ class CircuitBreakerTestCase(unittest.TestCase):
         # Should consider subclasses as well (KeyError is a subclass of LookupError)
         self.assertRaises(KeyError, self.breaker.call, err_3)
         self.assertEqual(0, self.breaker.fail_counter)
-
-    def test_add_excluded_exception(self):
-        """CircuitBreaker: it should allow the user to exclude an exception at a later time.
-        """
-        self.assertEqual((), self.breaker.excluded_exceptions)
-
-        self.breaker.add_excluded_exception(NotImplementedError)
-        self.assertEqual((NotImplementedError,), self.breaker.excluded_exceptions)
-
-        self.breaker.add_excluded_exception(Exception)
-        self.assertEqual((NotImplementedError, Exception), self.breaker.excluded_exceptions)
-
-    def test_add_excluded_exceptions(self):
-        """CircuitBreaker: it should allow the user to exclude exceptions at a later time.
-        """
-        self.breaker.add_excluded_exceptions(NotImplementedError, Exception)
-        self.assertEqual((NotImplementedError, Exception), self.breaker.excluded_exceptions)
-
-    def test_remove_excluded_exception(self):
-        """CircuitBreaker: it should allow the user to remove an excluded exception.
-        """
-        self.breaker.add_excluded_exception(NotImplementedError)
-        self.assertEqual((NotImplementedError,), self.breaker.excluded_exceptions)
-
-        self.breaker.remove_excluded_exception(NotImplementedError)
-        self.assertEqual((), self.breaker.excluded_exceptions)
 
     def test_raise_custom_exception_on_open(self):
         """CircuitBreaker: it should raise custom exceptions during open
@@ -599,7 +543,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
                 sleep(0.00005)
                 cb._success_counter = c + 1
 
-        self.breaker.add_listener(SuccessListener())
+        self.breaker.listeners.append(SuccessListener())
         self._start_threads(trigger_success, 3)
         self.assertEqual(1500, self.breaker._success_counter)
 
@@ -630,7 +574,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
                     self._count += 1
 
         state_listener = StateListener()
-        self.breaker.add_listener(state_listener)
+        self.breaker.listeners.append(state_listener)
 
         self._start_threads(trigger_failure, 5)
         self.assertEqual(1, state_listener._count)
@@ -651,7 +595,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
             def before_call(self, cb, func, *args, **kwargs):
                 sleep(0.00005)
 
-        self.breaker.add_listener(SleepListener())
+        self.breaker.listeners.append(SleepListener())
         self._start_threads(trigger_error, 3)
         self.assertEqual(self.breaker.fail_max, self.breaker.fail_counter)
 
