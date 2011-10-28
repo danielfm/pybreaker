@@ -347,6 +347,10 @@ class UnsafeCircuitBreaker(StateMachine):
 
 
 class CircuitBreaker(object):
+    __standard_locking__ = [
+        'call', 'open', 'close', 'half_open', 'force_open',
+        'force_closed', 'attempt', 'success', 'error']
+    
     def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
             listeners=None, exception=CircuitBreakerError):
 
@@ -354,11 +358,6 @@ class CircuitBreaker(object):
             listeners, exception)
 
         self._lock = threading.RLock()
-
-    @wraps(UnsafeCircuitBreaker.call)
-    def call(self, *args, **kwargs):
-        with self._lock:
-            return self.cb.call(*args, **kwargs)
 
     @wraps(UnsafeCircuitBreaker.__call__)
     def __call__(self, *args, **kwargs):
@@ -370,36 +369,6 @@ class CircuitBreaker(object):
                 return cb_wrapped(*args, **kwargs)
         return wrapper
 
-    @wraps(UnsafeCircuitBreaker.open)
-    def open(self):
-        with self._lock:
-            return self.cb.open()
-
-    @wraps(UnsafeCircuitBreaker.close)
-    def close(self):
-        with self._lock:
-            return self.cb.close()
-
-    @wraps(UnsafeCircuitBreaker.half_open)
-    def half_open(self):
-        with self._lock:
-            return self.cb.half_open()
-
-    @wraps(UnsafeCircuitBreaker.attempt)
-    def attempt(self):
-        with self._lock:
-            return self.cb.attempt()
-
-    @wraps(UnsafeCircuitBreaker.success)
-    def success(self):
-        with self._lock:
-            return self.cb.success()
-
-    @wraps(UnsafeCircuitBreaker.error)
-    def error(self):
-        with self._lock:
-            return self.cb.error()
-
     def __getattr__(self, name):
         return getattr(self.cb, name)
 
@@ -409,6 +378,17 @@ class CircuitBreaker(object):
     def __delattr__(self, name):
         return delattr(self.cb, name)
 
+
+def add_locked_function(method_name):
+    @wraps(getattr(UnsafeCircuitBreaker, method_name))
+    def fn(self, *args, **kwargs):
+        with self._lock:
+            return getattr(self.cb, method_name)(*args, **kwargs)
+    setattr(CircuitBreaker, method_name, fn)
+
+
+for method_name in CircuitBreaker.__standard_locking__:
+    add_locked_function(method_name)
 
 
 class CircuitBreakerListener(object):
