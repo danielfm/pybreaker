@@ -90,35 +90,35 @@ class UnsafeCircuitBreaker(StateMachine):
     
     transition(from_='closed', event='attempt', to='closed')
     transition(from_='closed', event='success', to='closed',
-        action='reset_count')
+        action='_reset_count')
     transition(from_='closed', event='error',   to='open',
-        guard='too_many_failures',
-        action=['reset_timer', 'raise_breaker_exception'])
+        guard='_too_many_failures',
+        action=['_reset_timer', '_raise_breaker_exception'])
     transition(from_='closed', event='error',   to='closed',
-        guard='not_too_many_failures')
+        guard='_not_too_many_failures')
 
     transition(from_='open', event='attempt', to='half_open',
-        guard='timeout_elapsed')
+        guard='_timeout_elapsed')
     transition(from_='open', event='attempt', to='open',
-        guard='timeout_remaining',
-        action='raise_breaker_exception')
+        guard='_timeout_remaining',
+        action='_raise_breaker_exception')
 
     transition(from_='half_open', event='attempt', to='half_open')
     transition(from_='half_open', event='error',   to='open',
-        action=['reset_timer', 'raise_breaker_exception'])
+        action=['_reset_timer', '_raise_breaker_exception'])
     transition(from_='half_open', event='success', to='closed',
-        action='reset_count')
+        action='_reset_count')
 
     transition(from_='forced_open', event='attempt', to='forced_open',
-        action='raise_breaker_exception')
+        action='_raise_breaker_exception')
     
     for event in ['attempt', 'success', 'error']:
         transition(from_='forced_closed', event=event, to='forced_closed')
 
     transition(from_=STATES, event='open',         to='open',
-        action='reset_timer')
+        action='_reset_timer')
     transition(from_=STATES, event='close',        to='closed',
-        action='reset_count')
+        action='_reset_count')
     transition(from_=STATES, event='half_open',    to='half_open')
     transition(from_=STATES, event='force_open',   to='forced_open')
     transition(from_=STATES, event='force_closed', to='forced_closed')
@@ -153,17 +153,15 @@ class UnsafeCircuitBreaker(StateMachine):
 
         return self._fail_counter
 
-    def is_system_error(self, exception):
+    def __call__(self, func):
         """
-        Returns whether the exception `exception` is considered a signal of
-        system malfunction. Business exceptions should not cause this circuit
-        breaker to open.
+        Returns a wrapper that calls the function `func` according to the rules
+        implemented by the current state of this circuit breaker.
         """
-        texc = type(exception)
-        for exc in self.excluded_exceptions:
-            if issubclass(texc, exc):
-                return False
-        return True
+        @wraps(func)
+        def _wrapper(*args, **kwargs):
+            return self.call(func, *args, **kwargs)
+        return _wrapper
 
     def call(self, func, *args, **kwargs):
         """
@@ -188,7 +186,7 @@ class UnsafeCircuitBreaker(StateMachine):
         """
         Handles a failed call to the guarded operation.
         """
-        if self.is_system_error(exc):
+        if self._is_system_error(exc):
             self._fail_counter += 1
             self.error()
             for listener in self.listeners:
@@ -205,47 +203,49 @@ class UnsafeCircuitBreaker(StateMachine):
         for listener in self.listeners:
             listener.success(self)
 
-    def __call__(self, func):
+    def _is_system_error(self, exception):
         """
-        Returns a wrapper that calls the function `func` according to the rules
-        implemented by the current state of this circuit breaker.
+        Returns whether the exception `exception` is considered a signal of
+        system malfunction. Business exceptions should not cause this circuit
+        breaker to open.
         """
-        @wraps(func)
-        def _wrapper(*args, **kwargs):
-            return self.call(func, *args, **kwargs)
-        return _wrapper
+        texc = type(exception)
+        for exc in self.excluded_exceptions:
+            if issubclass(texc, exc):
+                return False
+        return True
 
-    def reset_count(self):
+    def _reset_count(self):
         """
         An action that resets the failure count
         """
         self._fail_counter = 0
 
-    def not_too_many_failures(self):
+    def _not_too_many_failures(self):
         """
         A guard that returns true if failure count is less than the allowed max
         """
-        return not self.too_many_failures()
+        return not self._too_many_failures()
 
-    def too_many_failures(self):
+    def _too_many_failures(self):
         """
         A guard that returns True if failure count has exceeded the allowed maximum
         """
         return self._fail_counter >= self.fail_max
 
-    def reset_timer(self):
+    def _reset_timer(self):
         """
         An action that resets the timer that the open state uses to go to half_open
         """
         self._opened_at = datetime.now()
 
-    def raise_breaker_exception(self):
+    def _raise_breaker_exception(self):
         """
         An action that raises the breaker exception
         """
         raise self.exception()
 
-    def timeout_elapsed(self):
+    def _timeout_elapsed(self):
         """
         A guard that returns True if the `reset_timeout` has elapsed since the
         breaker opened
@@ -253,12 +253,12 @@ class UnsafeCircuitBreaker(StateMachine):
         timeout = timedelta(seconds=self.reset_timeout)
         return datetime.now() >= self._opened_at + timeout
 
-    def timeout_remaining(self):
+    def _timeout_remaining(self):
         """
         A guard that returns True if there is still time remaining before the
         `reset_timeout` is reached
         """
-        return not self.timeout_elapsed()
+        return not self._timeout_elapsed()
 
 
 class CircuitBreaker(object):
