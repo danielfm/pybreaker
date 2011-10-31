@@ -588,10 +588,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
     def test_half_open_thread_safety(self):
         """CircuitBreaker: it should allow only one trial call when the circuit is half-open.
         """
-        self.breaker = CircuitBreaker(fail_max=1, reset_timeout=0.01)
-
-        self.breaker.open()
-        sleep(0.01)
+        self.breaker.half_open()
 
         @self.breaker
         def err(): raise Exception()
