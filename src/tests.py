@@ -508,7 +508,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
     """
 
     def setUp(self):
-        self.breaker = CircuitBreaker(fail_max=3000, reset_timeout=1)
+        self.breaker = CircuitBreaker(fail_max=3000, reset_timeout=600)
 
     def _start_threads(self, target, n):
         """
