@@ -86,7 +86,41 @@ class ParameterizedCircuitBreaker(object):
         return wrapper
 
     def context(self, params=None):
+        """
+        Use this ParameterizedCircuitBreaker as a context manager, specifying
+        parameters
+        """
         return self.get_breaker(params).context()
+
+    def open(self, params=None):
+        """
+        Open the parameterized circuit breaker
+        """
+        return self.get_breaker(params).open()
+
+    def close(self, params=None):
+        """
+        Close the parameterized circuit breaker
+        """
+        return self.get_breaker(params).close()
+
+    def half_open(self, params=None):
+        """
+        Half-open the parameterized circuit breaker
+        """
+        return self.get_breaker(params).half_open()
+
+    def force_open(self, params=None):
+        """
+        Force-open the parameterized circuit breaker
+        """
+        return self.get_breaker(params).force_open()
+
+    def force_closed(self, params=None):
+        """
+        Force-closed the parameterized circuit breaker
+        """
+        return self.get_breaker(params).force_closed()
 
 
 class UnsafeCircuitBreaker(StateMachine):
@@ -205,6 +239,33 @@ class UnsafeCircuitBreaker(StateMachine):
 
             return func(*args, **kwargs)
 
+    @property
+    def timeout_remaining(self):
+        """
+        How long before an open circuit_breaker will flip to half_open, or None
+        if the breaker isn't open
+        """
+        if self.current_state != 'open': return None
+
+        timeout = timedelta(seconds=self.reset_timeout)
+        return self._opened_at + timeout - datetime.now()
+
+    @property
+    def failure_count(self):
+        """
+        How many failures this breaker has seen since the last success
+        """
+        return self._fail_counter
+
+    @property
+    def failures_remaining(self):
+        """
+        How many failures are required to open this circuit, or None if the
+        breaker isn't closed
+        """
+        if self.current_state != 'closed': return None
+        return self.fail_max - self._fail_counter
+
     def _handle_error(self, exc):
         """
         Handles a failed call to the guarded operation.
@@ -273,8 +334,8 @@ class UnsafeCircuitBreaker(StateMachine):
         A guard that returns True if the `reset_timeout` has elapsed since the
         breaker opened
         """
-        timeout = timedelta(seconds=self.reset_timeout)
-        return datetime.now() >= self._opened_at + timeout
+        remaining = self.timeout_remaining
+        return remaining is None or remaining <= timedelta()
 
     def _timeout_remaining(self):
         """
