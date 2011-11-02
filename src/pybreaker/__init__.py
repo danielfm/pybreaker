@@ -248,7 +248,7 @@ class UnsafeCircuitBreaker(StateMachine):
         if self.current_state != 'open': return None
 
         timeout = timedelta(seconds=self.reset_timeout)
-        return self._opened_at + timeout - datetime.now()
+        return max(self._opened_at + timeout - datetime.now(), timedelta())
 
     @property
     def failure_count(self):

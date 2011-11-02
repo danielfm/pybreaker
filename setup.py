@@ -33,5 +33,10 @@ setup(
     include_package_data = True,
     zip_safe = False,
     test_suite = 'tests',
-    install_requires = ['fluidity']
+    install_requires = ['fluidity-sm', 'argparse'],
+    entry_points = {
+        'console_scripts': [
+            'circuit_breaker_fifo = pybreaker.manager.pipe:main'
+        ]
+    }
 )
