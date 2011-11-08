@@ -35,6 +35,24 @@ class ParameterizedCircuitBreaker(object):
     """
 
     def __init__(self, fail_max=5, reset_timeout=60, exclude=None, listeners=None, exception=CircuitBreakerError):
+        """
+        Creates a new circuit breaker with the given parameters.
+
+        `fail_max`: (int)
+            The maximum numbers of consecutive failures before the circuit breaker opens
+
+        `reset_timeout`: (float)
+            The number of seconds before an open circuit breaker will switch to half_open
+
+        `exclude`: (list of `Exception`s)
+            A list of exceptions that shouldn't be counted as failures by this circuit breaker
+
+        `listeners`: (list of `CircuitBreakerListener`s)
+            A list of listeners to notify of circuit breaker events
+
+        `exception`: (`Exception`)
+            The exception to be raised when the `CircuitBreaker` is open
+        """
         self.circuit_breakers = {}
         self._fail_max = fail_max
         self._reset_timeout = reset_timeout
@@ -179,6 +197,21 @@ class UnsafeCircuitBreaker(StateMachine):
             listeners=None, exception=CircuitBreakerError):
         """
         Creates a new circuit breaker with the given parameters.
+
+        `fail_max`: (int)
+            The maximum numbers of consecutive failures before the circuit breaker opens
+
+        `reset_timeout`: (float)
+            The number of seconds before an open circuit breaker will switch to half_open
+
+        `exclude`: (list of `Exception`s)
+            A list of exceptions that shouldn't be counted as failures by this circuit breaker
+
+        `listeners`: (list of `CircuitBreakerListener`s)
+            A list of listeners to notify of circuit breaker events
+
+        `exception`: (`Exception`)
+            The exception to be raised when the `CircuitBreaker` is open
         """
         super(UnsafeCircuitBreaker, self).__init__()
         self._fail_counter = 0
@@ -352,6 +385,24 @@ class CircuitBreaker(object):
     
     def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
             listeners=None, exception=CircuitBreakerError):
+        """
+        Creates a new circuit breaker with the given parameters.
+
+        `fail_max`: (int)
+            The maximum numbers of consecutive failures before the circuit breaker opens
+
+        `reset_timeout`: (float)
+            The number of seconds before an open circuit breaker will switch to half_open
+
+        `exclude`: (list of `Exception`s)
+            A list of exceptions that shouldn't be counted as failures by this circuit breaker
+
+        `listeners`: (list of `CircuitBreakerListener`s)
+            A list of listeners to notify of circuit breaker events
+
+        `exception`: (`Exception`)
+            The exception to be raised when the `CircuitBreaker` is open
+        """
 
         self.__dict__['cb'] = UnsafeCircuitBreaker(fail_max, reset_timeout, exclude,
             listeners, exception)
