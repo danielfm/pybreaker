@@ -211,7 +211,7 @@ manager.pipe.SpinningFifoManager
 This implementation of the CircuitBreakerManager exposes an interface that uses
 an incoming named pipe (Linux only), and an outgoing file handle to allow access
 from the operations team. The running process can be interacted with via the
-circuit_breaker_fifo program that is installed by setup.py.
+circuit_breaker_fifo program that is installed by setup.py.::
 
     $ circuit_breaker_fifo -c breaker.conf -p 1234 status
      id    state    time until half_open    failure count    failures until open
@@ -224,7 +224,7 @@ circuit_breaker_fifo program that is installed by setup.py.
      id     state    time until half_open    failure count    failures until open
     foo    closed                    None                0                      5
 
-breaker.py in this case is a config file with values such as:
+breaker.py in this case is a config file with values such as:::
     [pybreaker]
         input_path = /tmp/breaker/{pid}.in
         output_path = /tmp/breaker/{pid}.out
