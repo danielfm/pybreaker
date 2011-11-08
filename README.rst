@@ -224,7 +224,7 @@ circuit_breaker_fifo program that is installed by setup.py.::
      id     state    time until half_open    failure count    failures until open
     foo    closed                    None                0                      5
 
-breaker.py in this case is a config file with values such as:::
+breaker.py in this case is a config file with values such as: ::
     [pybreaker]
         input_path = /tmp/breaker/{pid}.in
         output_path = /tmp/breaker/{pid}.out
