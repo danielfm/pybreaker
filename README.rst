@@ -198,6 +198,45 @@ change its current state::
 These properties and functions might and should be exposed to the operations
 staff somehow as they help them to detect problems in the system.
 
+CircuitBreakerManager
+~~~~~~~~~~~~~~~~~~~~~
+
+The CircuitBreakerManager provides an interface for managing all of the circuit breakers
+across an application, and then exposing the state of those breakers to an operations
+team.
+
+manager.pipe.SpinningFifoManager
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This implementation of the CircuitBreakerManager exposes an interface that uses
+an incoming named pipe (Linux only), and an outgoing file handle to allow access
+from the operations team. The running process can be interacted with via the
+circuit_breaker_fifo program that is installed by setup.py.
+
+    $ circuit_breaker_fifo -c breaker.conf -p 1234 status
+     id    state    time until half_open    failure count    failures until open
+    foo     open                00:30:00                5                   None
+
+    $ circuit_breaker_fifo -c breaker.conf -p 1234 close foo
+    Changed `foo` state
+
+    $ circuit_breaker_fifo -c breaker.conf -p 1234 status
+     id     state    time until half_open    failure count    failures until open
+    foo    closed                    None                0                      5
+
+breaker.py in this case is a config file with values such as:
+    [pybreaker]
+        input_path = /tmp/breaker/{pid}.in
+        output_path = /tmp/breaker/{pid}.out
+        fail_max = 5
+        reset_timout = 60
+        sleep_delay = .1
+
+In this context, {pid} is substituted in with the process id of the running python
+process (when used by the manager), or with the --pid argument to the command line
+script (when accessing the manager).
+
+    
 
 .. _Python: http://python.org
 .. _Jython: http://jython.org
