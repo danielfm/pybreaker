@@ -1,4 +1,5 @@
 from pybreaker import CircuitBreakerError, ParameterizedCircuitBreaker
+from threading import RLock
 
 class DuplicateCircuitBreaker(Exception):
     pass
@@ -12,6 +13,7 @@ class CircuitBreakerManager(object):
         self._listeners = listeners
         self._exception = exception
         self.breakers = {}
+        self._lock = RLock()
 
     def create_breaker(self, ident, fail_max=None, reset_timeout=None, exclude=None,
             listeners=None, exception=None):
@@ -19,26 +21,28 @@ class CircuitBreakerManager(object):
         Creates a new managed breaker, overriding the specified default values,
         or raising DuplicateCircuitBreaker if the breaker already exists
         """
-        
-        if ident in self.breakers:
-            raise DuplicateCircuitBreaker()
 
-        breaker = ParameterizedCircuitBreaker(
-            fail_max if fail_max is not None else self._fail_max,
-            reset_timeout if reset_timeout is not None else self._reset_timeout,
-            exclude if exclude is not None else self._exclude,
-            listeners if listeners is not None else self._listeners,
-            exception if exception is not None else self._exception,
-        )
-        self.breakers[ident] = breaker
+        with self._lock:
+            if ident in self.breakers:
+                raise DuplicateCircuitBreaker()
 
-        return breaker
+            breaker = ParameterizedCircuitBreaker(
+                fail_max if fail_max is not None else self._fail_max,
+                reset_timeout if reset_timeout is not None else self._reset_timeout,
+                exclude if exclude is not None else self._exclude,
+                listeners if listeners is not None else self._listeners,
+                exception if exception is not None else self._exception,
+            )
+            self.breakers[ident] = breaker
+
+            return breaker
 
     def get_breaker(self, ident):
         """
         Returns an already created breaker
         """
-        return self.breakers[ident]
+        with self._lock:
+            return self.breakers[ident]
 
     def breaker(self, ident, fail_max=None, reset_timeout=None, exclude=None,
             listeners=None, exception=None):
@@ -46,11 +50,12 @@ class CircuitBreakerManager(object):
         Creates a new managed breaker, overriding the specified default values,
         or returns an existing one, if it exists
         """
-        if ident in self.breakers:
-            return self.get_breaker(ident)
-        else:
-            return self.create_breaker(ident, fail_max, reset_timeout, exclude,
-                listeners, exception)
+        with self._lock:
+            if ident in self.breakers:
+                return self.get_breaker(ident)
+            else:
+                return self.create_breaker(ident, fail_max, reset_timeout, exclude,
+                    listeners, exception)
 
     def status(self):
         """
