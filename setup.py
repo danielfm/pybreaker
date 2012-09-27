@@ -5,12 +5,12 @@ from setuptools import setup, find_packages
 
 setup(
     name = 'pybreaker',
-    version = '0.2.1',
+    version = '0.2.2',
     description = 'Python implementation of the Circuit Breaker pattern',
     long_description = open('README.rst', 'r').read(),
     keywords = ['design', 'pattern', 'circuit', 'breaker', 'integration'],
     classifiers = [
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
