@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
 from pybreaker import *
@@ -500,7 +499,3 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         self.breaker.add_listener(SleepListener())
         self._start_threads(trigger_error, 3)
         self.assertEqual(self.breaker.fail_max, self.breaker.fail_counter)
-
-
-if __name__ == '__main__':
-    unittest.main()
