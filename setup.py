@@ -23,7 +23,7 @@ setup(
     ],
     license = 'BSD',
     author = 'Daniel Fernandes Martins',
-    author_email = 'daniel@destaquenet.com',
+    author_email = 'daniel.tritone@gmail.com',
     url = 'http://github.com/danielfm/pybreaker',
     package_dir = {'':'src'},
     py_modules = ['pybreaker'],
