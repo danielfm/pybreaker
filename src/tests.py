@@ -34,7 +34,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual((), self.breaker.excluded_exceptions)
 
     def test_new_with_custom_fail_max(self):
-        """CircuitBreaker: it should support a custom maximum number of failures.
+        """CircuitBreaker: it should support a custom maximum number of
+        failures.
         """
         self.breaker = CircuitBreaker(fail_max=10)
         self.assertEqual(0, self.breaker.fail_counter)
@@ -43,7 +44,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual((), self.breaker.excluded_exceptions)
 
     def test_new_with_custom_excluded_exceptions(self):
-        """CircuitBreaker: it should support a custom list of excluded exceptions.
+        """CircuitBreaker: it should support a custom list of excluded
+        exceptions.
         """
         self.breaker = CircuitBreaker(exclude=[Exception])
         self.assertEqual(0, self.breaker.fail_counter)
@@ -52,14 +54,16 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual((Exception,), self.breaker.excluded_exceptions)
 
     def test_fail_max_setter(self):
-        """CircuitBreaker: it should allow the user to set a new value for 'fail_max'.
+        """CircuitBreaker: it should allow the user to set a new value for
+        'fail_max'.
         """
         self.assertEqual(5, self.breaker.fail_max)
         self.breaker.fail_max = 10
         self.assertEqual(10, self.breaker.fail_max)
 
     def test_reset_timeout_setter(self):
-        """CircuitBreaker: it should allow the user to set a new value for 'reset_timeout'.
+        """CircuitBreaker: it should allow the user to set a new value for
+        'reset_timeout'.
         """
         self.assertEqual(60, self.breaker.reset_timeout)
         self.breaker.reset_timeout = 30
@@ -84,7 +88,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual({'a':1, 'b':2}, self.breaker.call(func, a=1, b=2))
 
     def test_successful_call(self):
-        """CircuitBreaker: it should keep the circuit closed after a successful call.
+        """CircuitBreaker: it should keep the circuit closed after a successful
+        call.
         """
         def func(): return True
         self.assertTrue(self.breaker.call(func))
@@ -92,7 +97,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual('closed', self.breaker.current_state)
 
     def test_one_failed_call(self):
-        """CircuitBreaker: it should keep the circuit closed after a few failures.
+        """CircuitBreaker: it should keep the circuit closed after a few
+        failures.
         """
         def func(): raise NotImplementedError()
         self.assertRaises(NotImplementedError, self.breaker.call, func)
@@ -100,7 +106,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual('closed', self.breaker.current_state)
 
     def test_one_successful_call_after_failed_call(self):
-        """CircuitBreaker: it should keep the circuit closed after few mixed outcomes.
+        """CircuitBreaker: it should keep the circuit closed after few mixed
+        outcomes.
         """
         def suc(): return True
         def err(): raise NotImplementedError()
@@ -149,7 +156,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual('open', self.breaker.current_state)
 
     def test_successful_after_timeout(self):
-        """CircuitBreaker: it should close the circuit when a call succeeds after timeout.
+        """CircuitBreaker: it should close the circuit when a call succeeds
+        after timeout.
         """
         self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.5)
 
@@ -174,7 +182,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual('closed', self.breaker.current_state)
 
     def test_failed_call_when_halfopen(self):
-        """CircuitBreaker: it should open the circuit when a call fails in half-open state.
+        """CircuitBreaker: it should open the circuit when a call fails in
+        half-open state.
         """
         def fun(): raise NotImplementedError()
 
@@ -188,7 +197,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual('open', self.breaker.current_state)
 
     def test_successful_call_when_halfopen(self):
-        """CircuitBreaker: it should close the circuit when a call succeeds in half-open state.
+        """CircuitBreaker: it should close the circuit when a call succeeds in
+        half-open state.
         """
         def fun(): return True
 
@@ -222,7 +232,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual('closed', self.breaker.current_state)
 
     def test_transition_events(self):
-        """CircuitBreaker: it should call the appropriate functions on every state transition.
+        """CircuitBreaker: it should call the appropriate functions on every
+        state transition.
         """
         class Listener(CircuitBreakerListener):
             def __init__(self):
@@ -247,10 +258,12 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.breaker.close()
         self.assertEqual('closed', self.breaker.current_state)
 
-        self.assertEqual('closed->open,open->half-open,half-open->closed,', listener.out)
+        self.assertEqual('closed->open,open->half-open,half-open->closed,', \
+                         listener.out)
 
     def test_call_events(self):
-        """CircuitBreaker: it should call the appropriate functions on every successful/failed call.
+        """CircuitBreaker: it should call the appropriate functions on every
+        successful/failed call.
         """
         self.out = ''
 
@@ -278,7 +291,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual('-success-failure', listener.out)
 
     def test_add_listener(self):
-        """CircuitBreaker: it should allow the user to add a listener at a later time.
+        """CircuitBreaker: it should allow the user to add a listener at a
+        later time.
         """
         self.assertEqual((), self.breaker.listeners)
 
@@ -291,7 +305,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual((first, second), self.breaker.listeners)
 
     def test_add_listeners(self):
-        """CircuitBreaker: it should allow the user to add listeners at a later time.
+        """CircuitBreaker: it should allow the user to add listeners at a
+        later time.
         """
         first, second = CircuitBreakerListener(), CircuitBreakerListener()
         self.breaker.add_listeners(first, second)
@@ -326,32 +341,40 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertRaises(NotImplementedError, self.breaker.call, err_1)
         self.assertEqual(1, self.breaker.fail_counter)
 
-        # Should consider subclasses as well (KeyError is a subclass of LookupError)
+        # Should consider subclasses as well (KeyError is a subclass of
+        # LookupError)
         self.assertRaises(KeyError, self.breaker.call, err_3)
         self.assertEqual(0, self.breaker.fail_counter)
 
     def test_add_excluded_exception(self):
-        """CircuitBreaker: it should allow the user to exclude an exception at a later time.
+        """CircuitBreaker: it should allow the user to exclude an exception at a
+        later time.
         """
         self.assertEqual((), self.breaker.excluded_exceptions)
 
         self.breaker.add_excluded_exception(NotImplementedError)
-        self.assertEqual((NotImplementedError,), self.breaker.excluded_exceptions)
+        self.assertEqual((NotImplementedError,), \
+                         self.breaker.excluded_exceptions)
 
         self.breaker.add_excluded_exception(Exception)
-        self.assertEqual((NotImplementedError, Exception), self.breaker.excluded_exceptions)
+        self.assertEqual((NotImplementedError, Exception), \
+                         self.breaker.excluded_exceptions)
 
     def test_add_excluded_exceptions(self):
-        """CircuitBreaker: it should allow the user to exclude exceptions at a later time.
+        """CircuitBreaker: it should allow the user to exclude exceptions at a
+        later time.
         """
         self.breaker.add_excluded_exceptions(NotImplementedError, Exception)
-        self.assertEqual((NotImplementedError, Exception), self.breaker.excluded_exceptions)
+        self.assertEqual((NotImplementedError, Exception), /
+                         self.breaker.excluded_exceptions)
 
     def test_remove_excluded_exception(self):
-        """CircuitBreaker: it should allow the user to remove an excluded exception.
+        """CircuitBreaker: it should allow the user to remove an excluded
+        exception.
         """
         self.breaker.add_excluded_exception(NotImplementedError)
-        self.assertEqual((NotImplementedError,), self.breaker.excluded_exceptions)
+        self.assertEqual((NotImplementedError,), \
+                         self.breaker.excluded_exceptions)
 
         self.breaker.remove_excluded_exception(NotImplementedError)
         self.assertEqual((), self.breaker.excluded_exceptions)
@@ -407,7 +430,8 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         setattr(obj, func.__name__, MethodType(func, self.breaker))
 
     def test_fail_thread_safety(self):
-        """CircuitBreaker: it should compute a failed call atomically to avoid race conditions.
+        """CircuitBreaker: it should compute a failed call atomically to
+        avoid race conditions.
         """
         @self.breaker
         def err(): raise Exception()
@@ -427,7 +451,8 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         self.assertEqual(1500, self.breaker.fail_counter)
 
     def test_success_thread_safety(self):
-        """CircuitBreaker: it should compute a successful call atomically to avoid race conditions.
+        """CircuitBreaker: it should compute a successful call atomically
+        to avoid race conditions.
         """
         @self.breaker
         def suc(): return True
@@ -449,7 +474,8 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         self.assertEqual(1500, self.breaker._success_counter)
 
     def test_half_open_thread_safety(self):
-        """CircuitBreaker: it should allow only one trial call when the circuit is half-open.
+        """CircuitBreaker: it should allow only one trial call when the
+        circuit is half-open.
         """
         self.breaker = CircuitBreaker(fail_max=1, reset_timeout=0.01)
 
@@ -482,7 +508,8 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
 
 
     def test_fail_max_thread_safety(self):
-        """CircuitBreaker: it should not allow more failed calls than 'fail_max' setting.
+        """CircuitBreaker: it should not allow more failed calls than
+        'fail_max' setting.
         """
         @self.breaker
         def err(): raise Exception()

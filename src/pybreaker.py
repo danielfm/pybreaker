@@ -358,7 +358,9 @@ class CircuitClosedState(CircuitBreakerState):
         """
         if self._breaker._fail_counter >= self._breaker.fail_max:
             self._breaker.open()
-            raise CircuitBreakerError('Failures threshold reached, circuit breaker opened')
+
+            error_msg = 'Failures threshold reached, circuit breaker opened'
+            raise CircuitBreakerError(error_msg)
 
 
 class CircuitOpenState(CircuitBreakerState):
@@ -389,7 +391,8 @@ class CircuitOpenState(CircuitBreakerState):
         """
         timeout = timedelta(seconds=self._breaker.reset_timeout)
         if datetime.now() < self.opened_at + timeout:
-            raise CircuitBreakerError('Timeout not elapsed yet, circuit breaker still open')
+            error_msg = 'Timeout not elapsed yet, circuit breaker still open'
+            raise CircuitBreakerError(error_msg)
         else:
             self._breaker.half_open()
             self._breaker.call(func, *args, **kwargs)
