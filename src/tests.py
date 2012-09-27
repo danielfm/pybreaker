@@ -365,7 +365,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
         later time.
         """
         self.breaker.add_excluded_exceptions(NotImplementedError, Exception)
-        self.assertEqual((NotImplementedError, Exception), /
+        self.assertEqual((NotImplementedError, Exception), \
                          self.breaker.excluded_exceptions)
 
     def test_remove_excluded_exception(self):
