@@ -8,6 +8,7 @@ For more information on this and other patterns and best practices, buy the
 book at http://pragprog.com/titles/mnee/release-it
 """
 
+import types
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -303,11 +304,25 @@ class CircuitBreakerState(object):
 
         try:
             ret = func(*args, **kwargs)
+            if isinstance(ret, types.GeneratorType):
+                return self.generator_call(ret)
+
         except BaseException as e:
             self._handle_error(e)
         else:
             self._handle_success()
         return ret
+
+    def generator_call(self, wrapped_generator):
+        try:
+            value = yield wrapped_generator.next()
+            while True:
+                value = yield wrapped_generator.send(value)
+        except StopIteration:
+            self._handle_success()
+            raise
+        except BaseException as e:
+            self._handle_error(e)
 
     def before_call(self, func, *args, **kwargs):
         """
