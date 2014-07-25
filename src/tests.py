@@ -403,6 +403,30 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertTrue(suc(True))
         self.assertEqual(0, self.breaker.fail_counter)
 
+    def test_generator(self):
+        """CircuitBreaker: it should inspect generator values.
+        """
+        @self.breaker
+        def suc(value):
+            "Docstring"
+            yield value
+
+        @self.breaker
+        def err(value):
+            "Docstring"
+            x = yield value
+            raise NotImplementedError(x)
+
+        s = suc(True)
+        e = err(True)
+        e.next()
+        self.assertRaises(NotImplementedError, e.send, True)
+        self.assertEqual(1, self.breaker.fail_counter)
+
+        self.assertTrue(s.next())
+        self.assertRaises(StopIteration, s.next)
+        self.assertEqual(0, self.breaker.fail_counter)
+
 
 import threading
 from types import MethodType
