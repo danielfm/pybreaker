@@ -17,6 +17,7 @@ Features
 * Configurable list of excluded exceptions (e.g. business exceptions)
 * Configurable failure threshold and reset timeout
 * Support for several event listeners per circuit breaker
+* Can guard generator functions
 * Functions and properties for easy monitoring and management
 * Thread-safe
 
