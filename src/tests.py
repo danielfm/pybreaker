@@ -419,12 +419,12 @@ class CircuitBreakerTestCase(unittest.TestCase):
 
         s = suc(True)
         e = err(True)
-        e.next()
+        next(e)
+
         self.assertRaises(NotImplementedError, e.send, True)
         self.assertEqual(1, self.breaker.fail_counter)
-
-        self.assertTrue(s.next())
-        self.assertRaises(StopIteration, s.next)
+        self.assertTrue(next(s))
+        self.assertRaises(StopIteration, lambda: next(s))
         self.assertEqual(0, self.breaker.fail_counter)
 
 
@@ -550,3 +550,4 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         self.breaker.add_listener(SleepListener())
         self._start_threads(trigger_error, 3)
         self.assertEqual(self.breaker.fail_max, self.breaker.fail_counter)
+

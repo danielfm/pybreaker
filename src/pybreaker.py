@@ -315,7 +315,7 @@ class CircuitBreakerState(object):
 
     def generator_call(self, wrapped_generator):
         try:
-            value = yield wrapped_generator.next()
+            value = yield next(wrapped_generator)
             while True:
                 value = yield wrapped_generator.send(value)
         except StopIteration:
