@@ -1,9 +1,15 @@
 Changelog
 =========
 
+Version 0.3.0 (September 1, 2016)
+
+* Fixed generator issue. (Thanks @dpdornseifer!)
+
+
 Version 0.2.3 (July 25, 2014)
 
 * Added support to generator functions. (Thanks @mauriciosl!)
+
 
 Version 0.2.1 (October 23, 2010)
 
