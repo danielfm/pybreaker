@@ -1,10 +1,10 @@
 #-*- coding:utf-8 -*-
 
 from pybreaker import *
-from random import random
 from time import sleep
 
 import unittest
+import unittest.mock
 
 
 class CircuitBreakerTestCase(unittest.TestCase):
@@ -157,11 +157,11 @@ class CircuitBreakerTestCase(unittest.TestCase):
 
     def test_successful_after_timeout(self):
         """CircuitBreaker: it should close the circuit when a call succeeds
-        after timeout.
+        after timeout. The successful function should only be called once.
         """
         self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.5)
 
-        def suc(): return True
+        suc = unittest.mock.MagicMock(return_value=True)
         def err(): raise NotImplementedError()
 
         self.assertRaises(NotImplementedError, self.breaker.call, err)
@@ -180,6 +180,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertTrue(self.breaker.call(suc))
         self.assertEqual(0, self.breaker.fail_counter)
         self.assertEqual('closed', self.breaker.current_state)
+        self.assertEqual(1, suc.call_count)
 
     def test_failed_call_when_halfopen(self):
         """CircuitBreaker: it should open the circuit when a call fails in
@@ -551,3 +552,6 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         self._start_threads(trigger_error, 3)
         self.assertEqual(self.breaker.fail_max, self.breaker.fail_counter)
 
+
+if __name__ == "__main__":
+    unittest.main()

@@ -410,7 +410,16 @@ class CircuitOpenState(CircuitBreakerState):
             raise CircuitBreakerError(error_msg)
         else:
             self._breaker.half_open()
-            self._breaker.call(func, *args, **kwargs)
+            return self._breaker.call(func, *args, **kwargs)
+
+    def call(self, func, *args, **kwargs):
+        """
+        Delegate the call to before_call, if the time out is not elapsed it will throw an exception, otherwise we get
+        the results from the call performed after the state is switch to half-open
+        """
+
+        return self.before_call(func, *args, **kwargs)
+
 
 
 class CircuitHalfOpenState(CircuitBreakerState):
