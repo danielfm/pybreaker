@@ -421,7 +421,6 @@ class CircuitOpenState(CircuitBreakerState):
         return self.before_call(func, *args, **kwargs)
 
 
-
 class CircuitHalfOpenState(CircuitBreakerState):
     """
     In the "half-open" state, the next call to the circuit breaker is allowed

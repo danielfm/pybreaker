@@ -4,7 +4,7 @@ from pybreaker import *
 from time import sleep
 
 import unittest
-import unittest.mock
+import mock
 
 
 class CircuitBreakerTestCase(unittest.TestCase):
