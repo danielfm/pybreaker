@@ -161,7 +161,7 @@ class CircuitBreakerTestCase(unittest.TestCase):
         """
         self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.5)
 
-        suc = unittest.mock.MagicMock(return_value=True)
+        suc = mock.MagicMock(return_value=True)
         def err(): raise NotImplementedError()
 
         self.assertRaises(NotImplementedError, self.breaker.call, err)
