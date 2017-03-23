@@ -458,18 +458,22 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         """CircuitBreaker: it should compute a failed call atomically to
         avoid race conditions.
         """
+        # Create a specific exception to avoid masking other errors
+        class SpecificException(Exception):
+            pass
+
         @self.breaker
-        def err(): raise Exception()
+        def err(): raise SpecificException()
 
         def trigger_error():
             for n in range(500):
                 try: err()
-                except: pass
+                except SpecificException: pass
 
         def _inc_counter(self):
-            c = self._fail_counter
+            c = self._state_storage._fail_counter
             sleep(0.00005)
-            self._fail_counter = c + 1
+            self._state_storage._fail_counter = c + 1
 
         self._mock_function(self.breaker, _inc_counter)
         self._start_threads(trigger_error, 3)
