@@ -14,7 +14,7 @@ from functools import wraps
 
 import threading
 
-__all__ = ('CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError',)
+__all__ = ('CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError', 'CircuitMemoryStorage',)
 
 
 class CircuitBreaker(object):
@@ -29,12 +29,15 @@ class CircuitBreaker(object):
     """
 
     def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
-            listeners=None):
+            listeners=None, state_storage=None):
         """
         Creates a new circuit breaker with the given parameters.
         """
         self._lock = threading.RLock()
-        self._fail_counter = 0
+        if not state_storage:
+            self._state_storage = CircuitMemoryStorage('closed')
+        else:
+            self._state_storage = state_storage
         self._state = CircuitClosedState(self)
 
         self._fail_max = fail_max
@@ -48,7 +51,7 @@ class CircuitBreaker(object):
         """
         Returns the current number of consecutive failures.
         """
-        return self._fail_counter
+        return self._state_storage.counter
 
     @property
     def fail_max(self):
@@ -87,6 +90,16 @@ class CircuitBreaker(object):
         """
         Returns the current state of this circuit breaker.
         """
+        with self._lock:
+            name = self._state_storage.state
+            if name != self._state.name:
+                if name == 'closed':
+                    self._state = CircuitClosedState(self, self._state, notify=True)
+                elif name == 'open':
+                    self._state = CircuitOpenState(self, self._state, notify=True)
+                else:
+                    self._state = CircuitHalfOpenState(self, self._state, notify=True)
+
         return self._state
 
     @property
@@ -95,7 +108,7 @@ class CircuitBreaker(object):
         Returns a string that identifies this circuit breaker's state, i.e.,
         'closed', 'open', 'half-open'.
         """
-        return self._state.name
+        return self._state_storage.state
 
     @property
     def excluded_exceptions(self):
@@ -130,7 +143,7 @@ class CircuitBreaker(object):
         """
         Increments the counter of failed calls.
         """
-        self._fail_counter += 1
+        self._state_storage.increment_counter()
 
     def is_system_error(self, exception):
         """
@@ -150,7 +163,7 @@ class CircuitBreaker(object):
         implemented by the current state of this circuit breaker.
         """
         with self._lock:
-            return self._state.call(func, *args, **kwargs)
+            return self.state.call(func, *args, **kwargs)
 
     def open(self):
         """
@@ -158,6 +171,7 @@ class CircuitBreaker(object):
         until timeout elapses.
         """
         with self._lock:
+            self._state_storage.state = 'open'
             self._state = CircuitOpenState(self, self._state, notify=True)
 
     def half_open(self):
@@ -167,6 +181,7 @@ class CircuitBreaker(object):
         succeeds).
         """
         with self._lock:
+            self._state_storage.state = 'half-open'
             self._state = CircuitHalfOpenState(self, self._state, notify=True)
 
     def close(self):
@@ -174,6 +189,7 @@ class CircuitBreaker(object):
         Closes the circuit, e.g. lets the following calls execute as usual.
         """
         with self._lock:
+            self._state_storage.state = 'closed'
             self._state = CircuitClosedState(self, self._state, notify=True)
 
     def __call__(self, func):
@@ -212,6 +228,139 @@ class CircuitBreaker(object):
         """
         with self._lock:
             self._listeners.remove(listener)
+
+
+class CircuitBreakerStorage(object):
+    """
+    Defines the underlying storage for a circuit breaker - the underlying
+    implementation should be in a subclass that overrides the method this
+    class defines.
+    """
+
+    def __init__(self, name):
+        """
+        Creates a new instance identified by `name`.
+        """
+        self._name = name
+
+    @property
+    def name(self):
+        """
+        Returns a human friendly name that identifies this state.
+        """
+        return name
+
+    @property
+    def state(self):
+        """
+        Override this method to retrieve the current circuit breaker state.
+        """
+        pass
+
+    @state.setter
+    def state(self, state):
+        """
+        Override this method to set the current circuit breaker state.
+        """
+        pass
+
+    def increment_counter(self):
+        """
+        Override this method to increase the failure counter by one.
+        """
+        pass
+
+    def reset_counter(self):
+        """
+        Override this method to set the failure counter to zero.
+        """
+        pass
+
+    @property
+    def counter(self):
+        """
+        Override this method to retrieve the current value of the failure counter.
+        """
+        pass
+
+    @property
+    def opened_at(self):
+        """
+        Override this method to retrieve the most recent value of when the
+        circuit was opened.
+        """
+        pass
+
+    @opened_at.setter
+    def opened_at(self, datetime):
+        """
+        Override this method to set the most recent value of when the circuit
+        was opened.
+        """
+        pass
+
+
+class CircuitMemoryStorage(CircuitBreakerStorage):
+    """
+    Implements a `CircuitBreakerStorage` in local memory.
+    """
+
+    def __init__(self, state):
+        """
+        Creates a new instance with the given `state`.
+        """
+        super(CircuitMemoryStorage, self).__init__('memory')
+        self._fail_counter = 0
+        self._opened_at = None
+        self._state = state
+
+    @property
+    def state(self):
+        """
+        Returns the current circuit breaker state.
+        """
+        return self._state
+
+    @state.setter
+    def state(self, state):
+        """
+        Set the current circuit breaker state to `state`.
+        """
+        self._state = state
+
+    def increment_counter(self):
+        """
+        Increases the failure counter by one.
+        """
+        self._fail_counter += 1
+
+    def reset_counter(self):
+        """
+        Sets the failure counter to zero.
+        """
+        self._fail_counter = 0
+
+    @property
+    def counter(self):
+        """
+        Returns the current value of the failure counter.
+        """
+        return self._fail_counter
+
+    @property
+    def opened_at(self):
+        """
+        Returns the most recent value of when the circuit was opened.
+        """
+        return self._opened_at
+
+    @opened_at.setter
+    def opened_at(self, datetime):
+        """
+        Sets the most recent value of when the circuit was opened to
+        `datetime`.
+        """
+        self._opened_at = datetime
 
 
 class CircuitBreakerListener(object):
@@ -286,7 +435,7 @@ class CircuitBreakerState(object):
         """
         Handles a successful call to the guarded operation.
         """
-        self._breaker._fail_counter = 0
+        self._breaker._state_storage.reset_counter()
         self.on_success()
         for listener in self._breaker.listeners:
             listener.success(self._breaker)
@@ -361,7 +510,7 @@ class CircuitClosedState(CircuitBreakerState):
         Moves the given circuit breaker `cb` to the "closed" state.
         """
         super(CircuitClosedState, self).__init__(cb, 'closed')
-        self._breaker._fail_counter = 0
+        self._breaker._state_storage.reset_counter()
         if notify:
             for listener in self._breaker.listeners:
                 listener.state_change(self._breaker, prev_state, self)
@@ -371,7 +520,7 @@ class CircuitClosedState(CircuitBreakerState):
         Moves the circuit breaker to the "open" state once the failures
         threshold is reached.
         """
-        if self._breaker._fail_counter >= self._breaker.fail_max:
+        if self._breaker._state_storage.counter >= self._breaker.fail_max:
             self._breaker.open()
 
             error_msg = 'Failures threshold reached, circuit breaker opened'
@@ -393,7 +542,7 @@ class CircuitOpenState(CircuitBreakerState):
         Moves the given circuit breaker `cb` to the "open" state.
         """
         super(CircuitOpenState, self).__init__(cb, 'open')
-        self.opened_at = datetime.now()
+        self._breaker._state_storage.opened_at = datetime.utcnow()
         if notify:
             for listener in self._breaker.listeners:
                 listener.state_change(self._breaker, prev_state, self)
@@ -405,7 +554,8 @@ class CircuitOpenState(CircuitBreakerState):
         to execute the real operation.
         """
         timeout = timedelta(seconds=self._breaker.reset_timeout)
-        if datetime.now() < self.opened_at + timeout:
+        opened_at = self._breaker._state_storage.opened_at
+        if opened_at and datetime.utcnow() < opened_at + timeout:
             error_msg = 'Timeout not elapsed yet, circuit breaker still open'
             raise CircuitBreakerError(error_msg)
         else:
