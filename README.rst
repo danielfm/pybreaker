@@ -2,6 +2,9 @@
 PyBreaker
 =========
 
+.. image:: https://travis-ci.org/danielfm/pybreaker.svg?branch=master
+    :target: https://travis-ci.org/danielfm/pybreaker
+
 PyBreaker is a Python implementation of the Circuit Breaker pattern, described
 in Michael T. Nygard's book `Release It!`_.
 
