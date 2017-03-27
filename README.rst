@@ -23,6 +23,7 @@ Features
 * Can guard generator functions
 * Functions and properties for easy monitoring and management
 * Thread-safe
+* Optional redis backing
 
 
 Requirements
@@ -64,10 +65,32 @@ integration point you want to protect against::
 e.g., live across requests.
 
 .. note::
-  
+
   Integration points to external services (i.e. databases, queues, etc) are
   more likely to fail, so make sure to always use timeouts when accessing such
   services if there's support at the API level.
+
+If you'd like to use the Redis backing, initialize the ``CircuitBreaker`` with a ``CircuitRedisStorage``::
+
+    import pybreaker
+    import redis
+
+    redis = redis.StrictRedis()
+    db_breaker = pybreaker.CircuitBreaker(
+        fail_max=5,
+        reset_timeout=60,
+        state_storage=CircuitRedisStorage('closed', redis))
+
+.. note::
+
+  You may want to reuse a connection already created in your application, if you're using ``django_redis`` for example::
+
+    from django_redis import get_redis_connection
+
+    db_breaker = pybreaker.CircuitBreaker(
+        fail_max=5,
+        reset_timeout=60,
+        state_storage=CircuitRedisStorage('closed', get_redis_connection('default')))
 
 
 Event Listening
