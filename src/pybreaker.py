@@ -248,7 +248,7 @@ class CircuitBreakerStorage(object):
         """
         Returns a human friendly name that identifies this state.
         """
-        return name
+        return self._name
 
     @property
     def state(self):
