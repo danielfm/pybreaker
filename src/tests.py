@@ -23,6 +23,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(5, self.breaker.fail_max)
         self.assertEqual('closed', self.breaker.current_state)
         self.assertEqual((), self.breaker.excluded_exceptions)
+        self.assertEqual((), self.breaker.listeners)
+        self.assertEqual('memory', self.breaker._state_storage.name)
 
     def test_new_with_custom_reset_timeout(self):
         """CircuitBreaker: it should support a custom reset timeout value.
@@ -32,6 +34,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(30, self.breaker.reset_timeout)
         self.assertEqual(5, self.breaker.fail_max)
         self.assertEqual((), self.breaker.excluded_exceptions)
+        self.assertEqual((), self.breaker.listeners)
+        self.assertEqual('memory', self.breaker._state_storage.name)
 
     def test_new_with_custom_fail_max(self):
         """CircuitBreaker: it should support a custom maximum number of
@@ -42,6 +46,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(60, self.breaker.reset_timeout)
         self.assertEqual(10, self.breaker.fail_max)
         self.assertEqual((), self.breaker.excluded_exceptions)
+        self.assertEqual((), self.breaker.listeners)
+        self.assertEqual('memory', self.breaker._state_storage.name)
 
     def test_new_with_custom_excluded_exceptions(self):
         """CircuitBreaker: it should support a custom list of excluded
@@ -52,6 +58,8 @@ class CircuitBreakerTestCase(unittest.TestCase):
         self.assertEqual(60, self.breaker.reset_timeout)
         self.assertEqual(5, self.breaker.fail_max)
         self.assertEqual((Exception,), self.breaker.excluded_exceptions)
+        self.assertEqual((), self.breaker.listeners)
+        self.assertEqual('memory', self.breaker._state_storage.name)
 
     def test_fail_max_setter(self):
         """CircuitBreaker: it should allow the user to set a new value for
