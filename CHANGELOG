@@ -1,6 +1,18 @@
 Changelog
 =========
 
+Version 0.3.2 (June 1, 2017)
+
+* Added support for optional Redis backing (Thanks @phillbaker!)
+* Fixed: Should listener.failure be called when the circuit is closed
+  and a call fails? (Thanks @sj175 for the report!)
+* Fixed: Wrapped function is called twice during successful call in open
+  state (Thanks @jstordeur!)
+
+Version 0.3.1 (January 25, 2017)
+
+* Added support for optional Redis backing
+
 Version 0.3.0 (September 1, 2016)
 
 * Fixed generator issue. (Thanks @dpdornseifer!)
