@@ -561,9 +561,9 @@ class CircuitBreakerState(object):
         """
         if self._breaker.is_system_error(exc):
             self._breaker._inc_counter()
-            self.on_failure(exc)
             for listener in self._breaker.listeners:
                 listener.failure(self._breaker, exc)
+            self.on_failure(exc)
         else:
             self._handle_success()
         raise exc
