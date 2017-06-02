@@ -79,7 +79,7 @@ If you'd like to use the Redis backing, initialize the ``CircuitBreaker`` with a
     db_breaker = pybreaker.CircuitBreaker(
         fail_max=5,
         reset_timeout=60,
-        state_storage=CircuitRedisStorage('closed', redis))
+        state_storage=pybreaker.CircuitRedisStorage('closed', redis))
 
 .. note::
 
