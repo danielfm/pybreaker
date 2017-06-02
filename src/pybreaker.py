@@ -377,12 +377,6 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 
     logger = logging.getLogger(__name__)
 
-    try:
-        from redis.exceptions import RedisError
-    except ImportError:
-        # Module does not exist, so this feature is not available
-        raise ImportError("CircuitRedisStorage can only be used if the required dependencies exist")
-
     def __init__(self, state, redis_object, namespace=None, fallback_circuit_state='closed'):
         """
         Creates a new instance with the given `state` and `redis` object. The
@@ -391,6 +385,12 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         used to determine the state of the circuit.
         """
         super(CircuitRedisStorage, self).__init__('redis')
+
+        try:
+            self.RedisError = __import__('redis').exceptions.RedisError
+        except ImportError:
+            # Module does not exist, so this feature is not available
+            raise ImportError("CircuitRedisStorage can only be used if 'redis' is available")
 
         self._redis = redis_object
         self._namespace_name = namespace
