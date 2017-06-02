@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.3.3 (June 2, 2017)
+
+* Fixed bug that caused pybreaker to break (!) if redis package was not
+  present (Thanks @phillbaker!)
+
 Version 0.3.2 (June 1, 2017)
 
 * Added support for optional Redis backing (Thanks @phillbaker!)

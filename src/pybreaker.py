@@ -17,6 +17,12 @@ from functools import wraps
 
 import threading
 
+try:
+    from redis.exceptions import RedisError
+    HAS_REDIS_SUPPORT = True
+except ImportError:
+    HAS_REDIS_SUPPORT = FALSE
+
 __all__ = (
     'CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError',
     'CircuitMemoryStorage', 'CircuitRedisStorage',)
@@ -384,6 +390,11 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         are any connection issues with redis, the `fallback_circuit_state` is
         used to determine the state of the circuit.
         """
+
+        # Module does not exist, so this feature is not available
+        if not HAS_REDIS_SUPPORT:
+            raise ImportError("CircuitRedisStorage can only be used if the required dependencies exist")
+
         super(CircuitRedisStorage, self).__init__('redis')
 
         try:
