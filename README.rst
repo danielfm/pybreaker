@@ -85,6 +85,7 @@ If you'd like to use the Redis backing, initialize the ``CircuitBreaker`` with a
 
   You may want to reuse a connection already created in your application, if you're using ``django_redis`` for example::
 
+    import pybreaker
     from django_redis import get_redis_connection
 
     db_breaker = pybreaker.CircuitBreaker(
