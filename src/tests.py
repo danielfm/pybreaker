@@ -6,6 +6,9 @@ from time import sleep
 import unittest
 import mock
 
+from tornado import gen
+from tornado import testing
+
 
 class CircuitBreakerStorageBasedTestCase(object):
     """
@@ -327,6 +330,35 @@ class CircuitBreakerConfigurationTestCase(object):
         def func(**kwargs): return kwargs
         self.assertEqual({'a':1, 'b':2}, self.breaker.call(func, a=1, b=2))
 
+    @testing.gen_test
+    def test_call_async_with_no_args(self):
+        """CircuitBreaker: it should be able to invoke async functions with no-args.
+        """
+        @gen.coroutine
+        def func(): return True
+
+        ret = yield self.breaker.call(func)
+        self.assertTrue(ret)
+
+    @testing.gen_test
+    def test_call_async_with_args(self):
+        """CircuitBreaker: it should be able to invoke async functions with args.
+        """
+        @gen.coroutine
+        def func(arg1, arg2): return [arg1, arg2]
+
+        ret = yield self.breaker.call(func, 42, 'abc')
+        self.assertEqual([42, 'abc'], ret)
+
+    @testing.gen_test
+    def test_call_async_with_kwargs(self):
+        """CircuitBreaker: it should be able to invoke async functions with kwargs.
+        """
+        @gen.coroutine
+        def func(**kwargs): return kwargs
+        ret = yield self.breaker.call(func, a=1, b=2)
+        self.assertEqual({'a':1, 'b':2}, ret)
+
     def test_add_listener(self):
         """CircuitBreaker: it should allow the user to add a listener at a
         later time.
@@ -440,13 +472,50 @@ class CircuitBreakerConfigurationTestCase(object):
         self.assertTrue(suc(True))
         self.assertEqual(0, self.breaker.fail_counter)
 
+    @testing.gen_test
+    def test_decorator_call_future(self):
+        """CircuitBreaker: it should be a decorator.
+        """
+        @self.breaker(call_future=True)
+        @gen.coroutine
+        def suc(value):
+            "Docstring"
+            raise gen.Return(value)
 
-class CircuitBreakerTestCase(unittest.TestCase, CircuitBreakerStorageBasedTestCase, CircuitBreakerConfigurationTestCase):
+        @self.breaker(call_future=True)
+        @gen.coroutine
+        def err(value):
+            "Docstring"
+            raise NotImplementedError()
+
+        self.assertEqual('Docstring', suc.__doc__)
+        self.assertEqual('Docstring', err.__doc__)
+        self.assertEqual('suc', suc.__name__)
+        self.assertEqual('err', err.__name__)
+
+        with self.assertRaises(NotImplementedError):
+            yield err(True)
+
+        self.assertEqual(1, self.breaker.fail_counter)
+
+        ret = yield suc(True)
+        self.assertTrue(ret)
+        self.assertEqual(0, self.breaker.fail_counter)
+
+    @mock.patch('pybreaker.HAS_TORNADO_SUPPORT', False)
+    def test_no_tornado_raises(self):
+        with self.assertRaises(ImportError):
+            def func(): return True
+            self.breaker(func, call_future=True)
+
+
+class CircuitBreakerTestCase(testing.AsyncTestCase, CircuitBreakerStorageBasedTestCase, CircuitBreakerConfigurationTestCase):
     """
     Tests for the CircuitBreaker class.
     """
 
     def setUp(self):
+        super(CircuitBreakerTestCase, self).setUp()
         self.breaker_kwargs = {}
         self.breaker = CircuitBreaker()
 
