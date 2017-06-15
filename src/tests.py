@@ -476,13 +476,13 @@ class CircuitBreakerConfigurationTestCase(object):
     def test_decorator_call_future(self):
         """CircuitBreaker: it should be a decorator.
         """
-        @self.breaker(call_future=True)
+        @self.breaker(__pybreaker_call_async=True)
         @gen.coroutine
         def suc(value):
             "Docstring"
             raise gen.Return(value)
 
-        @self.breaker(call_future=True)
+        @self.breaker(__pybreaker_call_async=True)
         @gen.coroutine
         def err(value):
             "Docstring"
@@ -506,7 +506,7 @@ class CircuitBreakerConfigurationTestCase(object):
     def test_no_tornado_raises(self):
         with self.assertRaises(ImportError):
             def func(): return True
-            self.breaker(func, call_future=True)
+            self.breaker(func, __pybreaker_call_async=True)
 
 
 class CircuitBreakerTestCase(testing.AsyncTestCase, CircuitBreakerStorageBasedTestCase, CircuitBreakerConfigurationTestCase):

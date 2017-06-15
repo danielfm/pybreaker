@@ -227,18 +227,18 @@ class CircuitBreaker(object):
         Returns a wrapper that calls the function `func` according to the rules
         implemented by the current state of this circuit breaker.
 
-        Optionally takes the keyword argument `call_future`, which will will
-        call `func` as a Tornado co-routine.
+        Optionally takes the keyword argument `__pybreaker_call_coroutine`,
+        which will will call `func` as a Tornado co-routine.
         """
-        call_future = kwargs.pop('call_future', False)
+        call_async = kwargs.pop('__pybreaker_call_async', False)
 
-        if call_future and not HAS_TORNADO_SUPPORT:
+        if call_async and not HAS_TORNADO_SUPPORT:
             raise ImportError('No module named tornado')
 
         def _outer_wrapper(func):
             @wraps(func)
             def _inner_wrapper(*args, **kwargs):
-                if call_future:
+                if call_async:
                     return self.call_async(func, *args, **kwargs)
                 return self.call(func, *args, **kwargs)
             return _inner_wrapper
