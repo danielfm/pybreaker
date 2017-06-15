@@ -49,7 +49,6 @@ class CircuitBreaker(object):
         """
         Creates a new circuit breaker with the given parameters.
         """
-
         self._lock = threading.RLock()
         if not state_storage:
             self._state_storage = CircuitMemoryStorage('closed')
@@ -182,15 +181,19 @@ class CircuitBreaker(object):
         with self._lock:
             return self.state.call(func, *args, **kwargs)
 
-    @gen.coroutine
     def call_async(self, func, *args, **kwargs):
         """
         Calls async `func` with the given `args` and `kwargs` according to the rules
         implemented by the current state of this circuit breaker.
+
+        Return a closure to prevent import errors when using without tornado present
         """
-        with self._lock:
-            ret = yield self.state.call_async(func, *args, **kwargs)
-            raise gen.Return(ret)
+        @gen.coroutine
+        def wrapped():
+            with self._lock:
+                ret = yield self.state.call_async(func, *args, **kwargs)
+                raise gen.Return(ret)
+        return wrapped()
 
     def open(self):
         """
@@ -224,7 +227,8 @@ class CircuitBreaker(object):
         Returns a wrapper that calls the function `func` according to the rules
         implemented by the current state of this circuit breaker.
 
-        Optionally takes bool `call_future`
+        Optionally takes the keyword argument `call_future`, which will will
+        call `func` as a Tornado co-routine.
         """
         call_future = kwargs.pop('call_future', False)
 
@@ -641,28 +645,32 @@ class CircuitBreakerState(object):
             self._handle_success()
         return ret
 
-    @gen.coroutine
     def call_async(self, func, *args, **kwargs):
         """
         Calls async `func` with the given `args` and `kwargs`, and updates the
         circuit breaker state according to the result.
+
+        Return a closure to prevent import errors when using without tornado present
         """
-        ret = None
+        @gen.coroutine
+        def wrapped():
+            ret = None
 
-        self.before_call(func, *args, **kwargs)
-        for listener in self._breaker.listeners:
-            listener.before_call(self._breaker, func, *args, **kwargs)
+            self.before_call(func, *args, **kwargs)
+            for listener in self._breaker.listeners:
+                listener.before_call(self._breaker, func, *args, **kwargs)
 
-        try:
-            ret = yield func(*args, **kwargs)
-            if isinstance(ret, types.GeneratorType):
-                raise gen.Return(self.generator_call(ret))
+            try:
+                ret = yield func(*args, **kwargs)
+                if isinstance(ret, types.GeneratorType):
+                    raise gen.Return(self.generator_call(ret))
 
-        except BaseException as e:
-            self._handle_error(e)
-        else:
-            self._handle_success()
-        raise gen.Return(ret)
+            except BaseException as e:
+                self._handle_error(e)
+            else:
+                self._handle_success()
+            raise gen.Return(ret)
+        return wrapped()
 
     def generator_call(self, wrapped_generator):
         try:
