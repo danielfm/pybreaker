@@ -222,7 +222,7 @@ class CircuitBreaker(object):
             self._state_storage.state = 'closed'
             self._state = CircuitClosedState(self, self._state, notify=True)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *call_args, **call_kwargs):
         """
         Returns a wrapper that calls the function `func` according to the rules
         implemented by the current state of this circuit breaker.
@@ -230,7 +230,7 @@ class CircuitBreaker(object):
         Optionally takes the keyword argument `__pybreaker_call_coroutine`,
         which will will call `func` as a Tornado co-routine.
         """
-        call_async = kwargs.pop('__pybreaker_call_async', False)
+        call_async = call_kwargs.pop('__pybreaker_call_async', False)
 
         if call_async and not HAS_TORNADO_SUPPORT:
             raise ImportError('No module named tornado')
@@ -243,8 +243,8 @@ class CircuitBreaker(object):
                 return self.call(func, *args, **kwargs)
             return _inner_wrapper
 
-        if args:
-            return _outer_wrapper(*args)
+        if call_args:
+            return _outer_wrapper(*call_args)
         return _outer_wrapper
 
     @property
