@@ -30,7 +30,12 @@ except ImportError:
 
 __all__ = (
     'CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError',
-    'CircuitMemoryStorage', 'CircuitRedisStorage',)
+    'CircuitMemoryStorage', 'CircuitRedisStorage', 'STATE_OPEN', 'STATE_CLOSED',
+    'STATE_HALF_OPEN',)
+
+STATE_OPEN = 'open'
+STATE_CLOSED = 'closed'
+STATE_HALF_OPEN = 'half-open'
 
 
 class CircuitBreaker(object):
@@ -51,7 +56,7 @@ class CircuitBreaker(object):
         """
         self._lock = threading.RLock()
         if not state_storage:
-            self._state_storage = CircuitMemoryStorage('closed')
+            self._state_storage = CircuitMemoryStorage(STATE_CLOSED)
         else:
             self._state_storage = state_storage
         self._state = CircuitClosedState(self)
@@ -109,9 +114,9 @@ class CircuitBreaker(object):
         with self._lock:
             name = self._state_storage.state
             if name != self._state.name:
-                if name == 'closed':
+                if name == STATE_CLOSED:
                     self._state = CircuitClosedState(self, self._state, notify=True)
-                elif name == 'open':
+                elif name == STATE_OPEN:
                     self._state = CircuitOpenState(self, self._state, notify=True)
                 else:
                     self._state = CircuitHalfOpenState(self, self._state, notify=True)
@@ -201,7 +206,7 @@ class CircuitBreaker(object):
         until timeout elapses.
         """
         with self._lock:
-            self._state_storage.state = 'open'
+            self._state_storage.state = STATE_OPEN
             self._state = CircuitOpenState(self, self._state, notify=True)
 
     def half_open(self):
@@ -211,7 +216,7 @@ class CircuitBreaker(object):
         succeeds).
         """
         with self._lock:
-            self._state_storage.state = 'half-open'
+            self._state_storage.state = STATE_HALF_OPEN
             self._state = CircuitHalfOpenState(self, self._state, notify=True)
 
     def close(self):
@@ -219,7 +224,7 @@ class CircuitBreaker(object):
         Closes the circuit, e.g. lets the following calls execute as usual.
         """
         with self._lock:
-            self._state_storage.state = 'closed'
+            self._state_storage.state = STATE_CLOSED
             self._state = CircuitClosedState(self, self._state, notify=True)
 
     def __call__(self, *call_args, **call_kwargs):
@@ -418,7 +423,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 
     logger = logging.getLogger(__name__)
 
-    def __init__(self, state, redis_object, namespace=None, fallback_circuit_state='closed'):
+    def __init__(self, state, redis_object, namespace=None, fallback_circuit_state=STATE_CLOSED):
         """
         Creates a new instance with the given `state` and `redis` object. The
         redis object should be similar to pyredis' StrictRedis class. If there
@@ -719,7 +724,7 @@ class CircuitClosedState(CircuitBreakerState):
         """
         Moves the given circuit breaker `cb` to the "closed" state.
         """
-        super(CircuitClosedState, self).__init__(cb, 'closed')
+        super(CircuitClosedState, self).__init__(cb, STATE_CLOSED)
         self._breaker._state_storage.reset_counter()
         if notify:
             for listener in self._breaker.listeners:
@@ -751,7 +756,7 @@ class CircuitOpenState(CircuitBreakerState):
         """
         Moves the given circuit breaker `cb` to the "open" state.
         """
-        super(CircuitOpenState, self).__init__(cb, 'open')
+        super(CircuitOpenState, self).__init__(cb, STATE_OPEN)
         self._breaker._state_storage.opened_at = datetime.utcnow()
         if notify:
             for listener in self._breaker.listeners:
@@ -794,7 +799,7 @@ class CircuitHalfOpenState(CircuitBreakerState):
         """
         Moves the given circuit breaker `cb` to the "half-open" state.
         """
-        super(CircuitHalfOpenState, self).__init__(cb, 'half-open')
+        super(CircuitHalfOpenState, self).__init__(cb, STATE_HALF_OPEN)
         if notify:
             for listener in self._breaker._listeners:
                 listener.state_change(self._breaker, prev_state, self)
