@@ -15,5 +15,5 @@ matrix:
         - os: linux
           python: 3.6
 install:
-    - if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then travis_retry pip install torando==4.3; fi
+    - if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then travis_retry pip install tornado==4.3; fi
 script: python setup.py test
