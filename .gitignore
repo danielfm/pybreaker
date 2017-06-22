@@ -10,3 +10,4 @@ dist/
 # Pycharm directories 
 .idea
 .ropeproject/
+*.iml
