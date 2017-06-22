@@ -5,7 +5,9 @@
 build/
 dist/
 *.egg-info/
+.eggs/
 
 # Pycharm directories 
 .idea
 .ropeproject/
+*.iml

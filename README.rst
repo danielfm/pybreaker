@@ -24,6 +24,7 @@ Features
 * Functions and properties for easy monitoring and management
 * Thread-safe
 * Optional redis backing
+* Optional support for asynchronous Tornado calls
 
 
 Requirements
@@ -79,7 +80,7 @@ If you'd like to use the Redis backing, initialize the ``CircuitBreaker`` with a
     db_breaker = pybreaker.CircuitBreaker(
         fail_max=5,
         reset_timeout=60,
-        state_storage=pybreaker.CircuitRedisStorage('closed', redis))
+        state_storage=pybreaker.CircuitRedisStorage(pybreaker.STATE_CLOSED, redis))
 
 .. note::
 
@@ -91,7 +92,7 @@ If you'd like to use the Redis backing, initialize the ``CircuitBreaker`` with a
     db_breaker = pybreaker.CircuitBreaker(
         fail_max=5,
         reset_timeout=60,
-        state_storage=pybreaker.CircuitRedisStorage('closed', get_redis_connection('default')))
+        state_storage=pybreaker.CircuitRedisStorage(pybreaker.STATE_CLOSED, get_redis_connection('default')))
 
 
 Event Listening
@@ -170,6 +171,27 @@ operation.
 After 60 seconds, the circuit breaker will allow the next call to
 ``update_customer`` pass through. If that call succeeds, the circuit is closed;
 if it fails, however, the circuit is opened again until another timeout elapses.
+
+Optional Tornado Support
+```````````````````````````````
+A circuit breaker can (optionally) be used to call asynchronous Tornado functions::
+
+    from tornado import gen
+
+    @db_breaker(__pybreaker_call_async=True)
+    @gen.coroutine
+    def async_update(cust):
+        # Do async stuff here...
+        pass
+
+Or if you don't want to use the decorator syntax::
+
+    @gen.coroutine
+    def async_update(cust):
+        # Do async stuff here...
+        pass
+
+    updated_customer = db_breaker.call_async(async_update, my_customer)
 
 
 Excluding Exceptions
