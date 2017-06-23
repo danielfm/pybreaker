@@ -1,10 +1,17 @@
 Changelog
 =========
 
+Version 0.4.0 (June 23, 2017)
+
+* Added optional support for asynchronous Tornado calls (Thanks @jeffrand!)
+* Fixed typo (issue #19) (Thanks @jeffrand!)
+
+
 Version 0.3.3 (June 2, 2017)
 
 * Fixed bug that caused pybreaker to break (!) if redis package was not
   present (Thanks @phillbaker!)
+
 
 Version 0.3.2 (June 1, 2017)
 
@@ -14,9 +21,11 @@ Version 0.3.2 (June 1, 2017)
 * Fixed: Wrapped function is called twice during successful call in open
   state (Thanks @jstordeur!)
 
+
 Version 0.3.1 (January 25, 2017)
 
 * Added support for optional Redis backing
+
 
 Version 0.3.0 (September 1, 2016)
 
