@@ -480,9 +480,13 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         self._redis = redis_object
         self._namespace_name = namespace
         self._fallback_circuit_state = fallback_circuit_state
+        self._initial_state = str(state)
 
+        self._setup_redis_state()
+
+    def _setup_redis_state(self):
         self._redis.setnx(self._namespace('fail_counter'), 0)
-        self._redis.setnx(self._namespace('state'), str(state))
+        self._redis.setnx(self._namespace('state'), self._initial_state)
 
     @property
     def state(self):
@@ -490,7 +494,12 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Returns the current circuit breaker state.
         """
         try:
-            return self._redis.get(self._namespace('state')).decode('utf-8')
+            state_bytes = self._redis.get(self._namespace('state'))
+            if state_bytes is None:
+                self._setup_redis_state()
+                return self._initial_state
+
+            return state_bytes.decode('utf-8')
         except self.RedisError:
             self.logger.error('RedisError: falling back to default circuit state', exc_info=True)
             return self._fallback_circuit_state
