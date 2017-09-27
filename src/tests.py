@@ -256,7 +256,7 @@ class CircuitBreakerConfigurationTestCase(object):
         for state in (STATE_OPEN, STATE_CLOSED, STATE_HALF_OPEN):
             storage = CircuitMemoryStorage(state)
             breaker = CircuitBreaker(state_storage=storage)
-            self.assertEqual(breaker._state.name, state)
+            self.assertEqual(breaker.state.name, state)
 
     def test_default_params(self):
         """CircuitBreaker: it should define smart defaults.
@@ -526,6 +526,24 @@ class CircuitBreakerTestCase(testing.AsyncTestCase, CircuitBreakerStorageBasedTe
         super(CircuitBreakerTestCase, self).setUp()
         self.breaker_kwargs = {}
         self.breaker = CircuitBreaker()
+
+    def test_create_new_state__bad_state(self):
+        with self.assertRaises(ValueError):
+            self.breaker._create_new_state('foo')
+
+    @mock.patch('pybreaker.CircuitOpenState')
+    def test_notify_not_called_on_init(self, open_state):
+        storage = CircuitMemoryStorage('open')
+        breaker = CircuitBreaker(state_storage=storage)
+        open_state.assert_called_once_with(breaker, 'open', notify=False)
+
+    @mock.patch('pybreaker.CircuitOpenState')
+    def test_notify_called_on_state_change(self, open_state):
+        storage = CircuitMemoryStorage('closed')
+        breaker = CircuitBreaker(state_storage=storage)
+        storage.state = 'open'
+        breaker.state
+        open_state.assert_called_once_with(breaker, 'open', notify=True)
 
 
 import fakeredis
