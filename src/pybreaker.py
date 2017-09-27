@@ -119,9 +119,8 @@ class CircuitBreaker(object):
         try:
             return state_map[state](self, state, notify=notify)
         except KeyError:
-            raise ValueError(
-                "Unknown state (%r), valid states: %s",
-                state, ', '.join(state_map.keys()))
+            msg = "Unknown state {!r}), valid states: {}"
+            raise ValueError(msg.format(state, ', '.join(state_map)))
 
     @property
     def state(self):
