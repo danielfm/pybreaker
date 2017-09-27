@@ -535,15 +535,15 @@ class CircuitBreakerTestCase(testing.AsyncTestCase, CircuitBreakerStorageBasedTe
     def test_notify_not_called_on_init(self, open_state):
         storage = CircuitMemoryStorage('open')
         breaker = CircuitBreaker(state_storage=storage)
-        open_state.assert_called_once_with(breaker, 'open', notify=False)
+        open_state.assert_called_once_with(breaker, prev_state=None, notify=False)
 
     @mock.patch('pybreaker.CircuitOpenState')
     def test_notify_called_on_state_change(self, open_state):
         storage = CircuitMemoryStorage('closed')
         breaker = CircuitBreaker(state_storage=storage)
-        storage.state = 'open'
-        breaker.state
-        open_state.assert_called_once_with(breaker, 'open', notify=True)
+        prev_state = breaker.state
+        breaker.state = 'open'
+        open_state.assert_called_once_with(breaker, prev_state=prev_state, notify=True)
 
 
 import fakeredis
