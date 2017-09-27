@@ -55,11 +55,8 @@ class CircuitBreaker(object):
         Creates a new circuit breaker with the given parameters.
         """
         self._lock = threading.RLock()
-        if not state_storage:
-            self._state_storage = CircuitMemoryStorage(STATE_CLOSED)
-        else:
-            self._state_storage = state_storage
-        self._state = self._create_new_state(self._state_storage.state, notify=False)
+        self._state_storage = state_storage or CircuitMemoryStorage(STATE_CLOSED)
+        self._state = self._create_new_state(self.current_state)
 
         self._fail_max = fail_max
         self._reset_timeout = reset_timeout
@@ -106,7 +103,7 @@ class CircuitBreaker(object):
         """
         self._reset_timeout = timeout
 
-    def _create_new_state(self, state, notify=True):
+    def _create_new_state(self, new_state, prev_state=None, notify=False):
         """
         Return state object from state string, i.e.,
         'closed' -> <CircuitClosedState>
@@ -117,27 +114,40 @@ class CircuitBreaker(object):
             STATE_HALF_OPEN: CircuitHalfOpenState,
         }
         try:
-            return state_map[state](self, state, notify=notify)
+            cls = state_map[new_state]
+            return cls(self, prev_state=prev_state, notify=notify)
         except KeyError:
-            msg = "Unknown state {!r}), valid states: {}"
-            raise ValueError(msg.format(state, ', '.join(state_map)))
+            msg = "Unknown state {!r}, valid states: {}"
+            raise ValueError(msg.format(new_state, ', '.join(state_map)))
 
     @property
     def state(self):
         """
-        Returns the current state of this circuit breaker.
+        Update (if needed) and returns the cached state object.
+        """
+        # Ensure cached state is up-to-date
+        if self.current_state != self._state.name:
+            # If cached state is out-of-date, that means that it was likely
+            # changed elsewhere (e.g. another process instance). We still send
+            # out a notification, informing others that this particular circuit
+            # breaker instance noticed the changed circuit.
+            self.state = self.current_state
+        return self._state
+
+    @state.setter
+    def state(self, state_str):
+        """
+        Set cached state and notify listeners of newly cached state.
         """
         with self._lock:
-            name = self._state_storage.state
-            if self._state.name != name:
-                self._state = self._create_new_state(name, notify=True)
-        return self._state
+            self._state = self._create_new_state(
+                state_str, prev_state=self._state, notify=True)
 
     @property
     def current_state(self):
         """
-        Returns a string that identifies this circuit breaker's state, i.e.,
-        'closed', 'open', 'half-open'.
+        Returns a string that identifies the state of the circuit breaker as
+        reported by the _state_storage. i.e., 'closed', 'open', 'half-open'.
         """
         return self._state_storage.state
 
@@ -216,8 +226,7 @@ class CircuitBreaker(object):
         until timeout elapses.
         """
         with self._lock:
-            self._state_storage.state = STATE_OPEN
-            self._state = CircuitOpenState(self, self._state, notify=True)
+            self.state = self._state_storage.state = STATE_OPEN
 
     def half_open(self):
         """
@@ -226,16 +235,14 @@ class CircuitBreaker(object):
         succeeds).
         """
         with self._lock:
-            self._state_storage.state = STATE_HALF_OPEN
-            self._state = CircuitHalfOpenState(self, self._state, notify=True)
+            self.state = self._state_storage.state = STATE_HALF_OPEN
 
     def close(self):
         """
         Closes the circuit, e.g. lets the following calls execute as usual.
         """
         with self._lock:
-            self._state_storage.state = STATE_CLOSED
-            self._state = CircuitClosedState(self, self._state, notify=True)
+            self.state = self._state_storage.state = STATE_CLOSED
 
     def __call__(self, *call_args, **call_kwargs):
         """
