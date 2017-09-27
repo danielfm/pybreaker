@@ -59,7 +59,7 @@ class CircuitBreaker(object):
             self._state_storage = CircuitMemoryStorage(STATE_CLOSED)
         else:
             self._state_storage = state_storage
-        self._state = CircuitClosedState(self)
+        self._state = self._create_new_state(self._state_storage.state, notify=False)
 
         self._fail_max = fail_max
         self._reset_timeout = reset_timeout
@@ -106,6 +106,23 @@ class CircuitBreaker(object):
         """
         self._reset_timeout = timeout
 
+    def _create_new_state(self, state, notify=True):
+        """
+        Return state object from state string, i.e.,
+        'closed' -> <CircuitClosedState>
+        """
+        state_map = {
+            STATE_CLOSED: CircuitClosedState,
+            STATE_OPEN: CircuitOpenState,
+            STATE_HALF_OPEN: CircuitHalfOpenState,
+        }
+        try:
+            return state_map[state](self, state, notify=notify)
+        except KeyError:
+            raise ValueError(
+                "Unknown state (%r), valid states: %s",
+                state, ', '.join(state_map.keys()))
+
     @property
     def state(self):
         """
@@ -113,14 +130,8 @@ class CircuitBreaker(object):
         """
         with self._lock:
             name = self._state_storage.state
-            if name != self._state.name:
-                if name == STATE_CLOSED:
-                    self._state = CircuitClosedState(self, self._state, notify=True)
-                elif name == STATE_OPEN:
-                    self._state = CircuitOpenState(self, self._state, notify=True)
-                else:
-                    self._state = CircuitHalfOpenState(self, self._state, notify=True)
-
+            if self._state.name != name:
+                self._state = self._create_new_state(name, notify=True)
         return self._state
 
     @property

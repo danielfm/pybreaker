@@ -250,6 +250,14 @@ class CircuitBreakerConfigurationTestCase(object):
     Tests for the CircuitBreaker class.
     """
 
+    def test_default_state(self):
+        """CircuitBreaker: it should get initial state from state_storage.
+        """
+        for state in (STATE_OPEN, STATE_CLOSED, STATE_HALF_OPEN):
+            storage = CircuitMemoryStorage(state)
+            breaker = CircuitBreaker(state_storage=storage)
+            self.assertEqual(breaker._state.name, state)
+
     def test_default_params(self):
         """CircuitBreaker: it should define smart defaults.
         """
