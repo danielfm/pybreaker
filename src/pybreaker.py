@@ -448,27 +448,35 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         self._fallback_circuit_state = fallback_circuit_state
         self._initial_state = str(state)
 
-        self._setup_redis_state()
+        self._initialize_redis_state(self._initial_state)
 
-    def _setup_redis_state(self):
+    def _initialize_redis_state(self, state):
         self._redis.setnx(self._namespace('fail_counter'), 0)
-        self._redis.setnx(self._namespace('state'), self._initial_state)
+        self._redis.setnx(self._namespace('state'), state)
 
     @property
     def state(self):
         """
         Returns the current circuit breaker state.
+
+        If the circuit breaker state on Redis is missing, re-initialize it
+        with the fallback circuit state and reset the fail counter.
         """
         try:
             state_bytes = self._redis.get(self._namespace('state'))
-            if state_bytes is None:
-                self._setup_redis_state()
-                return self._initial_state
-
-            return state_bytes.decode('utf-8')
         except self.RedisError:
             self.logger.error('RedisError: falling back to default circuit state', exc_info=True)
             return self._fallback_circuit_state
+
+        state = self._fallback_circuit_state
+        if state_bytes is not None:
+            state = state_bytes.decode('utf-8')
+        else:
+            # state retrieved from redis was missing, so we re-initialize
+            # the circuit breaker state on redis
+            self._initialize_redis_state(self._fallback_circuit_state)
+
+        return state
 
     @state.setter
     def state(self, state):

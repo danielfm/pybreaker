@@ -559,6 +559,22 @@ class CircuitBreakerRedisTestCase(unittest.TestCase, CircuitBreakerStorageBasedT
             state = self.breaker.state
             self.assertEqual('open', state.name)
 
+    def test_missing_state(self):
+        """CircuitBreakerRedis: If state on Redis is missing, it should set the
+        fallback circuit state and reset the fail counter to 0.
+        """
+        self.breaker_kwargs = {'state_storage': CircuitRedisStorage('closed', self.redis, fallback_circuit_state='open')}
+        self.breaker = CircuitBreaker(**self.breaker_kwargs)
+
+        def func(): raise NotImplementedError()
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+        self.assertEqual(1, self.breaker.fail_counter)
+
+        with mock.patch.object(self.redis, 'get', new=lambda k: None):
+            state = self.breaker.state
+            self.assertEqual('open', state.name)
+            self.assertEqual(0, self.breaker.fail_counter)
+
 
 
 import threading
