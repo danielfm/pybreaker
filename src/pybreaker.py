@@ -742,8 +742,13 @@ class CircuitClosedState(CircuitBreakerState):
         Moves the given circuit breaker `cb` to the "closed" state.
         """
         super(CircuitClosedState, self).__init__(cb, STATE_CLOSED)
-        self._breaker._state_storage.reset_counter()
         if notify:
+            # We only reset the counter if notify is True, otherwise the CircuitBreaker
+            # will lose it's failure count due to a second CircuitBreaker being created
+            # using the same _state_storage object, or if the _state_storage objects
+            # share a central source of truth (as would be the case with the redis
+            # storage).
+            self._breaker._state_storage.reset_counter()
             for listener in self._breaker.listeners:
                 listener.state_change(self._breaker, prev_state, self)
 

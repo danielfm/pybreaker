@@ -545,6 +545,15 @@ class CircuitBreakerTestCase(testing.AsyncTestCase, CircuitBreakerStorageBasedTe
         breaker.state = 'open'
         open_state.assert_called_once_with(breaker, prev_state=prev_state, notify=True)
 
+    def test_failure_count_not_reset_during_creation(self):
+        for state in (STATE_OPEN, STATE_CLOSED, STATE_HALF_OPEN):
+            storage = CircuitMemoryStorage(state)
+            storage.increment_counter()
+
+            breaker = CircuitBreaker(state_storage=storage)
+            self.assertEqual(breaker.state.name, state)
+            self.assertEqual(breaker.fail_counter, 1)
+
 
 import fakeredis
 import logging
