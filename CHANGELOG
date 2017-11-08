@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.4.1 (October 2, 2017)
+
+* Get initial CircuitBreaker state from state_storage (Thanks @alukach!)
+
 Version 0.4.0 (June 23, 2017)
 
 * Added optional support for asynchronous Tornado calls (Thanks @jeffrand!)

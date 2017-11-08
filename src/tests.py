@@ -250,6 +250,14 @@ class CircuitBreakerConfigurationTestCase(object):
     Tests for the CircuitBreaker class.
     """
 
+    def test_default_state(self):
+        """CircuitBreaker: it should get initial state from state_storage.
+        """
+        for state in (STATE_OPEN, STATE_CLOSED, STATE_HALF_OPEN):
+            storage = CircuitMemoryStorage(state)
+            breaker = CircuitBreaker(state_storage=storage)
+            self.assertEqual(breaker.state.name, state)
+
     def test_default_params(self):
         """CircuitBreaker: it should define smart defaults.
         """
@@ -518,6 +526,33 @@ class CircuitBreakerTestCase(testing.AsyncTestCase, CircuitBreakerStorageBasedTe
         super(CircuitBreakerTestCase, self).setUp()
         self.breaker_kwargs = {}
         self.breaker = CircuitBreaker()
+
+    def test_create_new_state__bad_state(self):
+        with self.assertRaises(ValueError):
+            self.breaker._create_new_state('foo')
+
+    @mock.patch('pybreaker.CircuitOpenState')
+    def test_notify_not_called_on_init(self, open_state):
+        storage = CircuitMemoryStorage('open')
+        breaker = CircuitBreaker(state_storage=storage)
+        open_state.assert_called_once_with(breaker, prev_state=None, notify=False)
+
+    @mock.patch('pybreaker.CircuitOpenState')
+    def test_notify_called_on_state_change(self, open_state):
+        storage = CircuitMemoryStorage('closed')
+        breaker = CircuitBreaker(state_storage=storage)
+        prev_state = breaker.state
+        breaker.state = 'open'
+        open_state.assert_called_once_with(breaker, prev_state=prev_state, notify=True)
+
+    def test_failure_count_not_reset_during_creation(self):
+        for state in (STATE_OPEN, STATE_CLOSED, STATE_HALF_OPEN):
+            storage = CircuitMemoryStorage(state)
+            storage.increment_counter()
+
+            breaker = CircuitBreaker(state_storage=storage)
+            self.assertEqual(breaker.state.name, state)
+            self.assertEqual(breaker.fail_counter, 1)
 
 
 import fakeredis
