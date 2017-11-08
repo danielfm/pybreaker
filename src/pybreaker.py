@@ -50,7 +50,7 @@ class CircuitBreaker(object):
     """
 
     def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
-            listeners=None, state_storage=None):
+                 listeners=None, state_storage=None, name=None):
         """
         Creates a new circuit breaker with the given parameters.
         """
@@ -63,6 +63,7 @@ class CircuitBreaker(object):
 
         self._excluded_exceptions = list(exclude or [])
         self._listeners = list(listeners or [])
+        self._name = name
 
     @property
     def fail_counter(self):
@@ -296,6 +297,20 @@ class CircuitBreaker(object):
         """
         with self._lock:
             self._listeners.remove(listener)
+
+    @property
+    def name(self):
+        """
+        Returns the name of this circuit breaker. Useful for logging.
+        """
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        """
+        Set the name of this circuit breaker.
+        """
+        self._name = name
 
 
 class CircuitBreakerStorage(object):

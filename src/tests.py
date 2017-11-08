@@ -516,6 +516,18 @@ class CircuitBreakerConfigurationTestCase(object):
             def func(): return True
             self.breaker(func, __pybreaker_call_async=True)
 
+    def test_name(self):
+        """CircuitBreaker: it should allow an optional name to be set and
+           retrieved.
+        """
+        name = "test_breaker"
+        self.breaker = CircuitBreaker(name=name)
+        self.assertEqual(self.breaker.name, name)
+
+        name = "breaker_test"
+        self.breaker.name = name
+        self.assertEqual(self.breaker.name, name)
+
 
 class CircuitBreakerTestCase(testing.AsyncTestCase, CircuitBreakerStorageBasedTestCase, CircuitBreakerConfigurationTestCase):
     """
