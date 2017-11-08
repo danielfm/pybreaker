@@ -123,7 +123,10 @@ when certain events occur. In that case, it's better to subclass
 
     class LogListener(pybreaker.CircuitBreakerListener):
         "Listener used to log circuit breaker events."
-        pass
+
+        def state_change(self, cb, old_state, new_state):
+            msg = "State Change: CB: {0}, New State: {1}".format(cb.name, new_state)
+            logging.info(msg)
 
 
 To add listeners to a circuit breaker::
