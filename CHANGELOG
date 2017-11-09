@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.4.2 (November 9, 2017)
+
+* Add optional name to CircuitBreaker (Thanks @chrisvaughn!)
+
 Version 0.4.1 (October 2, 2017)
 
 * Get initial CircuitBreaker state from state_storage (Thanks @alukach!)
