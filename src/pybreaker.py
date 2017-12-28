@@ -11,6 +11,7 @@ book at http://pragprog.com/titles/mnee/release-it
 import types
 import time
 import calendar
+import inspect
 import logging
 from datetime import datetime, timedelta
 from functools import wraps
@@ -31,9 +32,9 @@ except ImportError:
     HAS_REDIS_SUPPORT = False
 
 __all__ = (
-    'CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError',
-    'CircuitMemoryStorage', 'CircuitRedisStorage', 'STATE_OPEN', 'STATE_CLOSED',
-    'STATE_HALF_OPEN',)
+    'CircuitBreaker', 'CircuitBreakerMultiplexer', 'CircuitBreakerListener',
+    'CircuitBreakerError', 'CircuitMemoryStorage', 'CircuitRedisStorage',
+    'STATE_OPEN', 'STATE_CLOSED', 'STATE_HALF_OPEN',)
 
 STATE_OPEN = 'open'
 STATE_CLOSED = 'closed'
@@ -318,6 +319,53 @@ class CircuitBreaker(object):
         Set the name of this circuit breaker.
         """
         self._name = name
+
+
+class CircuitBreakerMultiplexer(object):
+    """
+    It might happen that a particular subsystem only partially fails. For
+    example, a specific call to an external service might be broken, while
+    other calls still work. In that case, it might be undesirable to disable
+    the entire subsystem. This multiplexer allows to dynamically create a
+    `CircuitBreaker` based on a method argument.
+    """
+    def __init__(self, *args, **kwargs):
+        self.name = kwargs.pop('name', '')
+        self.init_args = args
+        self.init_kwargs = kwargs
+        self._breakers = {}
+
+    def __call__(self, break_on, *circuit_breaker_args, **circuit_breaker_kwargs):
+        def _outer_wrapper(func):
+            # Use inspection to get the argument index
+            try:
+                parameters = inspect.signature(func).parameters
+                arg_position = list(parameters.keys()).index(break_on)
+                default_value = parameters[break_on].default
+            except ValueError:
+                # The provided argument is not listed.
+                raise ValueError('%s is not an argument of the function' % break_on)
+
+            @wraps(func)
+            def _inner_wrapper(*args, **kwargs):
+                if break_on in kwargs:
+                    break_on_argument = kwargs.get(break_on)
+                elif arg_position < len(args):
+                    break_on_argument = args[arg_position]
+                else:
+                    # It does not need to be explicitly provided if it has a default value
+                    break_on_argument = default_value
+
+                # Reuse existing circuit breaker or create a new one if necessary.
+                try:
+                    circuit_breaker = self._breakers[break_on_argument]
+                except KeyError:
+                    breaker_name = self.name + str(break_on_argument)
+                    circuit_breaker = CircuitBreaker(*self.init_args, name=breaker_name, **self.init_kwargs)
+                    self._breakers[break_on_argument] = circuit_breaker
+                return circuit_breaker(*circuit_breaker_args, **circuit_breaker_kwargs)(func)(*args, **kwargs)
+            return _inner_wrapper
+        return _outer_wrapper
 
 
 class CircuitBreakerStorage(object):
