@@ -734,6 +734,21 @@ class CircuitBreakerMultiplexerTestCase(unittest.TestCase):
         self.assertEqual(func(1, other_arg=2), True)
         self.assertEqual(func(1, 2), True)
 
+    def test_keyword_only(self):
+        @self.breaker(break_on='other_arg')
+        def func(arg, *positional, other_arg=1):
+            if other_arg == 1:
+                raise Exception
+            return True
+
+        with self.assertRaises(Exception):
+            func(1, 2)
+        with self.assertRaises(CircuitBreakerError):
+            func(1, 2, 3)
+        with self.assertRaises(CircuitBreakerError):
+            func(1, other_arg=1)
+        self.assertEqual(func(1, other_arg=2), True)
+
 
 import fakeredis
 import logging
