@@ -335,6 +335,7 @@ class CircuitBreakerMultiplexer(object):
                 parameters = inspect.signature(func).parameters
                 arg_position = list(parameters.keys()).index(break_on)
                 default_value = parameters[break_on].default
+                keyword_only = parameters[break_on].kind == inspect.Parameter.KEYWORD_ONLY
             except ValueError:
                 # The provided argument is not listed.
                 raise ValueError('%s is not an argument of the function' % break_on)
@@ -343,7 +344,7 @@ class CircuitBreakerMultiplexer(object):
             def _inner_wrapper(*args, **kwargs):
                 if break_on in kwargs:
                     break_on_argument = kwargs.get(break_on)
-                elif arg_position < len(args):
+                elif not keyword_only and arg_position < len(args):
                     break_on_argument = args[arg_position]
                 else:
                     # It does not need to be explicitly provided if it has a default value
