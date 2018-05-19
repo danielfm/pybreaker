@@ -15,6 +15,8 @@ import logging
 from datetime import datetime, timedelta
 from functools import wraps
 import threading
+import six
+import sys
 
 try:
     from tornado import gen
@@ -776,7 +778,7 @@ class CircuitClosedState(CircuitBreakerState):
             self._breaker.open()
 
             error_msg = 'Failures threshold reached, circuit breaker opened'
-            raise CircuitBreakerError(error_msg)
+            six.reraise(CircuitBreakerError, CircuitBreakerError(error_msg), sys.exc_info()[2])
 
 
 class CircuitOpenState(CircuitBreakerState):
@@ -846,7 +848,8 @@ class CircuitHalfOpenState(CircuitBreakerState):
         Opens the circuit breaker.
         """
         self._breaker.open()
-        raise CircuitBreakerError('Trial call failed, circuit breaker opened')
+        error_msg = 'Trial call failed, circuit breaker opened'
+        six.reraise(CircuitBreakerError, CircuitBreakerError(error_msg), sys.exc_info()[2])
 
     def on_success(self):
         """
