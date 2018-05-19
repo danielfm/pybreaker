@@ -1,4 +1,8 @@
 #-*- coding:utf-8 -*-
+import pytest
+import sys
+
+from pytest import fail
 
 from pybreaker import *
 from time import sleep
@@ -58,7 +62,12 @@ class CircuitBreakerStorageBasedTestCase(object):
         self.assertRaises(NotImplementedError, self.breaker.call, func)
 
         # Circuit should open
-        self.assertRaises(CircuitBreakerError, self.breaker.call, func)
+        try:
+            self.breaker.call(func)
+            fail('CircuitBreakerError should throw')
+        except CircuitBreakerError as e:
+            import traceback
+            self.assertIn('NotImplementedError', traceback.format_exc())
         self.assertEqual(3, self.breaker.fail_counter)
         self.assertEqual('open', self.breaker.current_state)
 

@@ -27,6 +27,9 @@ setup(
     url='http://github.com/danielfm/pybreaker',
     package_dir={'': 'src'},
     py_modules=['pybreaker'],
+    install_requires=[
+        'six',
+    ],
     include_package_data=True,
     zip_safe=False,
     test_suite='tests',
