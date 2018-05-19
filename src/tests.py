@@ -53,7 +53,7 @@ class CircuitBreakerStorageBasedTestCase(object):
         self.assertEqual('closed', self.breaker.current_state)
 
     def test_several_failed_calls(self):
-        """CircuitBreaker: it should open the circuit after many failures.
+        """CircuitBreaker: it should open the circuit after many failures, the traceback should have trigger exception
         """
         self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs)
         def func(): raise NotImplementedError()
