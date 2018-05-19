@@ -1,17 +1,14 @@
 #-*- coding:utf-8 -*-
-import pytest
-import sys
-
-from pytest import fail
-
-from pybreaker import *
-from time import sleep
 
 import unittest
-import mock
+from time import sleep
 
+import mock
+from pytest import fail
 from tornado import gen
 from tornado import testing
+
+from pybreaker import *
 
 
 class CircuitBreakerStorageBasedTestCase(object):
@@ -53,7 +50,21 @@ class CircuitBreakerStorageBasedTestCase(object):
         self.assertEqual('closed', self.breaker.current_state)
 
     def test_several_failed_calls(self):
-        """CircuitBreaker: it should open the circuit after many failures, the traceback should have trigger exception
+        """CircuitBreaker: it should open the circuit after many failures.
+        """
+        self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs)
+        def func(): raise NotImplementedError()
+
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+
+        # Circuit should open
+        self.assertRaises(CircuitBreakerError, self.breaker.call, func)
+        self.assertEqual(3, self.breaker.fail_counter)
+        self.assertEqual('open', self.breaker.current_state)
+
+    def test_traceback_in_circuitbreaker_error(self):
+        """CircuitBreaker: it should open the circuit after many failures.
         """
         self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs)
         def func(): raise NotImplementedError()
