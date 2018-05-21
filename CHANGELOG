@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.4.4 (May 21, 2018)
+
+* Fix PyPI release
+
 Version 0.4.3 (May 21, 2018)
 
 * Re-initialize state on Redis if missing (Thanks @scascketta!)
