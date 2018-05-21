@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.4.3 (May 21, 2018)
+
+* Re-initialize state on Redis if missing (Thanks @scascketta!)
+* Add trigger exception into the CircuitBreakerError (Thanks @tczhaodachuan!)
+
 Version 0.4.2 (November 9, 2017)
 
 * Add optional name to CircuitBreaker (Thanks @chrisvaughn!)
