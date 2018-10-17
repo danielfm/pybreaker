@@ -229,6 +229,7 @@ class CircuitBreaker(object):
         until timeout elapses.
         """
         with self._lock:
+            self._state_storage.opened_at = datetime.utcnow()
             self.state = self._state_storage.state = STATE_OPEN
 
     def half_open(self):
@@ -813,7 +814,6 @@ class CircuitOpenState(CircuitBreakerState):
         Moves the given circuit breaker `cb` to the "open" state.
         """
         super(CircuitOpenState, self).__init__(cb, STATE_OPEN)
-        self._breaker._state_storage.opened_at = datetime.utcnow()
         if notify:
             for listener in self._breaker.listeners:
                 listener.state_change(self._breaker, prev_state, self)
