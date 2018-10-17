@@ -1,6 +1,7 @@
 #-*- coding:utf-8 -*-
 
 import unittest
+from datetime import datetime
 from time import sleep
 
 import mock
@@ -585,6 +586,17 @@ class CircuitBreakerTestCase(testing.AsyncTestCase, CircuitBreakerStorageBasedTe
             breaker = CircuitBreaker(state_storage=storage)
             self.assertEqual(breaker.state.name, state)
             self.assertEqual(breaker.fail_counter, 1)
+
+    def test_state_opened_at_not_reset_during_creation(self):
+        for state in (STATE_OPEN, STATE_CLOSED, STATE_HALF_OPEN):
+            storage = CircuitMemoryStorage(state)
+            now = datetime.now()
+            storage.opened_at = now
+
+            breaker = CircuitBreaker(state_storage=storage)
+            self.assertEqual(breaker.state.name, state)
+            self.assertEqual(storage.opened_at, now)
+
 
 
 import fakeredis
