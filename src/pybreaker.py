@@ -59,6 +59,7 @@ class CircuitBreaker(object):
         self._lock = threading.RLock()
         self._state_storage = state_storage or CircuitMemoryStorage(STATE_CLOSED)
         self._state = self._create_new_state(self.current_state)
+        self._state_lock = threading.Lock()
 
         self._fail_max = fail_max
         self._reset_timeout = reset_timeout
@@ -210,8 +211,7 @@ class CircuitBreaker(object):
         Calls `func` with the given `args` and `kwargs` according to the rules
         implemented by the current state of this circuit breaker.
         """
-        with self._lock:
-            return self.state.call(func, *args, **kwargs)
+        return self.state.call(func, *args, **kwargs)
 
     def call_async(self, func, *args, **kwargs):
         """
@@ -222,9 +222,8 @@ class CircuitBreaker(object):
         """
         @gen.coroutine
         def wrapped():
-            with self._lock:
-                ret = yield self.state.call_async(func, *args, **kwargs)
-                raise gen.Return(ret)
+            ret = yield self.state.call_async(func, *args, **kwargs)
+            raise gen.Return(ret)
         return wrapped()
 
     def open(self):
@@ -403,46 +402,53 @@ class CircuitMemoryStorage(CircuitBreakerStorage):
         self._fail_counter = 0
         self._opened_at = None
         self._state = state
+        self._lock = threading.Lock()
 
     @property
     def state(self):
         """
         Returns the current circuit breaker state.
         """
-        return self._state
+        with self._lock:
+            return self._state
 
     @state.setter
     def state(self, state):
         """
         Set the current circuit breaker state to `state`.
         """
-        self._state = state
+        with self._lock:
+            self._state = state
 
     def increment_counter(self):
         """
         Increases the failure counter by one.
         """
-        self._fail_counter += 1
+        with self._lock:
+            self._fail_counter += 1
 
     def reset_counter(self):
         """
         Sets the failure counter to zero.
         """
-        self._fail_counter = 0
+        with self._lock:
+            self._fail_counter = 0
 
     @property
     def counter(self):
         """
         Returns the current value of the failure counter.
         """
-        return self._fail_counter
+        with self._lock:
+            return self._fail_counter
 
     @property
     def opened_at(self):
         """
         Returns the most recent value of when the circuit was opened.
         """
-        return self._opened_at
+        with self._lock:
+            return self._opened_at
 
     @opened_at.setter
     def opened_at(self, datetime):
@@ -450,7 +456,8 @@ class CircuitMemoryStorage(CircuitBreakerStorage):
         Sets the most recent value of when the circuit was opened to
         `datetime`.
         """
-        self._opened_at = datetime
+        with self._lock:
+            self._opened_at = datetime
 
 
 class CircuitRedisStorage(CircuitBreakerStorage):
@@ -486,6 +493,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         self._namespace_name = namespace
         self._fallback_circuit_state = fallback_circuit_state
         self._initial_state = str(state)
+        self._lock = threading.Lock()
 
         self._initialize_redis_state(self._initial_state)
 
@@ -501,67 +509,73 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         If the circuit breaker state on Redis is missing, re-initialize it
         with the fallback circuit state and reset the fail counter.
         """
-        try:
-            state_bytes = self._redis.get(self._namespace('state'))
-        except self.RedisError:
-            self.logger.error('RedisError: falling back to default circuit state', exc_info=True)
-            return self._fallback_circuit_state
+        with self._lock:
+            try:
+                state_bytes = self._redis.get(self._namespace('state'))
+            except self.RedisError:
+                self.logger.error('RedisError: falling back to default circuit state', exc_info=True)
+                return self._fallback_circuit_state
 
-        state = self._fallback_circuit_state
-        if state_bytes is not None:
-            state = state_bytes.decode('utf-8')
-        else:
-            # state retrieved from redis was missing, so we re-initialize
-            # the circuit breaker state on redis
-            self._initialize_redis_state(self._fallback_circuit_state)
+            state = self._fallback_circuit_state
 
-        return state
+            if state_bytes is not None:
+                state = state_bytes.decode('utf-8')
+            else:
+                # state retrieved from redis was missing, so we re-initialize
+                # the circuit breaker state on redis
+                self._initialize_redis_state(self._fallback_circuit_state)
+
+            return state
 
     @state.setter
     def state(self, state):
         """
         Set the current circuit breaker state to `state`.
         """
-        try:
-            self._redis.set(self._namespace('state'), str(state))
-        except self.RedisError:
-            self.logger.error('RedisError', exc_info=True)
-            pass
+        with self._lock:
+            try:
+                self._redis.set(self._namespace('state'), str(state))
+            except self.RedisError:
+                self.logger.error('RedisError', exc_info=True)
+                pass
 
     def increment_counter(self):
         """
         Increases the failure counter by one.
         """
-        try:
-            self._redis.incr(self._namespace('fail_counter'))
-        except self.RedisError:
-            self.logger.error('RedisError', exc_info=True)
-            pass
+        with self._lock:
+            try:
+                self._redis.incr(self._namespace('fail_counter'))
+            except self.RedisError:
+                self.logger.error('RedisError', exc_info=True)
+                pass
 
     def reset_counter(self):
         """
         Sets the failure counter to zero.
         """
-        try:
-            self._redis.set(self._namespace('fail_counter'), 0)
-        except self.RedisError:
-            self.logger.error('RedisError', exc_info=True)
-            pass
+        with self._lock:
+            try:
+                self._redis.set(self._namespace('fail_counter'), 0)
+            except self.RedisError:
+                self.logger.error('RedisError', exc_info=True)
+                pass
 
     @property
     def counter(self):
         """
         Returns the current value of the failure counter.
         """
-        try:
-            value = self._redis.get(self._namespace('fail_counter'))
-            if value:
-                return int(value)
-            else:
+        with self._lock:
+            try:
+                value = self._redis.get(self._namespace('fail_counter'))
+                if value:
+                    return int(value)
+                else:
+                    return 0
+            except self.RedisError:
+                self.logger.error('RedisError: Assuming no errors', exc_info=True)
                 return 0
-        except self.RedisError:
-            self.logger.error('RedisError: Assuming no errors', exc_info=True)
-            return 0
 
     @property
     def opened_at(self):
@@ -569,13 +583,14 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Returns a datetime object of the most recent value of when the circuit
         was opened.
         """
-        try:
-            timestamp = self._redis.get(self._namespace('opened_at'))
-            if timestamp:
-                return datetime(*time.gmtime(int(timestamp))[:6])
-        except self.RedisError:
-            self.logger.error('RedisError', exc_info=True)
-            return None
+        with self._lock:
+            try:
+                timestamp = self._redis.get(self._namespace('opened_at'))
+                if timestamp:
+                    return datetime(*time.gmtime(int(timestamp))[:6])
+            except self.RedisError:
+                self.logger.error('RedisError', exc_info=True)
+                return None
 
     @opened_at.setter
     def opened_at(self, now):
@@ -585,19 +600,20 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         To avoid timezone issues between different systems, the passed in
         datetime should be in UTC.
         """
-        try:
-            key = self._namespace('opened_at')
-            def set_if_greater(pipe):
-                current_value = pipe.get(key)
-                next_value = int(calendar.timegm(now.timetuple()))
-                pipe.multi()
-                if not current_value or next_value > int(current_value):
-                    pipe.set(key, next_value)
+        with self._lock:
+            try:
+                key = self._namespace('opened_at')
+                def set_if_greater(pipe):
+                    current_value = pipe.get(key)
+                    next_value = int(calendar.timegm(now.timetuple()))
+                    pipe.multi()
+                    if not current_value or next_value > int(current_value):
+                        pipe.set(key, next_value)
 
-            self._redis.transaction(set_if_greater, key)
-        except self.RedisError:
-            self.logger.error('RedisError', exc_info=True)
-            pass
+                self._redis.transaction(set_if_greater, key)
+            except self.RedisError:
+                self.logger.error('RedisError', exc_info=True)
+                pass
 
     def _namespace(self, key):
         name_parts = [self.BASE_NAMESPACE, key]
@@ -667,10 +683,11 @@ class CircuitBreakerState(object):
         Handles a failed call to the guarded operation.
         """
         if self._breaker.is_system_error(exc):
-            self._breaker._inc_counter()
+            with self._breaker._state_lock:
+                self._breaker._inc_counter()
+                self.on_failure(exc)
             for listener in self._breaker.listeners:
                 listener.failure(self._breaker, exc)
-            self.on_failure(exc)
         else:
             self._handle_success()
 
@@ -681,8 +698,9 @@ class CircuitBreakerState(object):
         """
         Handles a successful call to the guarded operation.
         """
-        self._breaker._state_storage.reset_counter()
-        self.on_success()
+        with self._breaker._state_lock:
+            self._breaker._state_storage.reset_counter()
+            self.on_success()
         for listener in self._breaker.listeners:
             listener.success(self._breaker)
 

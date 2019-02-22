@@ -754,8 +754,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         setattr(obj, func.__name__, MethodType(func, self.breaker))
 
     def test_fail_thread_safety(self):
-        """CircuitBreaker: it should compute a failed call atomically to
-        avoid race conditions.
+        """CircuitBreaker: it should increment the fail counter atomically.
         """
         # Create a specific exception to avoid masking other errors
         class SpecificException(Exception):
@@ -770,36 +769,12 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
                 except SpecificException: pass
 
         def _inc_counter(self):
-            c = self._state_storage._fail_counter
             sleep(0.00005)
-            self._state_storage._fail_counter = c + 1
+            self._state_storage.increment_counter()
 
         self._mock_function(self.breaker, _inc_counter)
         self._start_threads(trigger_error, 3)
         self.assertEqual(1500, self.breaker.fail_counter)
-
-    def test_success_thread_safety(self):
-        """CircuitBreaker: it should compute a successful call atomically
-        to avoid race conditions.
-        """
-        @self.breaker
-        def suc(): return True
-
-        def trigger_success():
-            for n in range(500):
-                suc()
-
-        class SuccessListener(CircuitBreakerListener):
-            def success(self, cb):
-                c = 0
-                if hasattr(cb, '_success_counter'):
-                    c = cb._success_counter
-                sleep(0.00005)
-                cb._success_counter = c + 1
-
-        self.breaker.add_listener(SuccessListener())
-        self._start_threads(trigger_success, 3)
-        self.assertEqual(1500, self.breaker._success_counter)
 
     def test_half_open_thread_safety(self):
         """CircuitBreaker: it should allow only one trial call when the
@@ -837,7 +812,9 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
 
     def test_fail_max_thread_safety(self):
         """CircuitBreaker: it should not allow more failed calls than
-        'fail_max' setting.
+        'fail_max' setting. As up to num_threads will potentially be executing
+        concurrently, we can get concurrent updates such that the
+        counter is greater than the 'fail_max' by the number of threads.
         """
         @self.breaker
         def err(): raise Exception()
@@ -851,9 +828,14 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
             def before_call(self, cb, func, *args, **kwargs):
                 sleep(0.00005)
 
+            def state_change(self, cb, old_state, new_state):
+                if new_state.name == STATE_HALF_OPEN:
+                    raise Exception("Circuit is open; increase reset timeout on test")
+
         self.breaker.add_listener(SleepListener())
-        self._start_threads(trigger_error, 3)
-        self.assertEqual(self.breaker.fail_max, self.breaker.fail_counter)
+        num_threads = 3
+        self._start_threads(trigger_error, num_threads)
+        self.assertLess(self.breaker.fail_max, self.breaker.fail_counter + num_threads)
 
 
 class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
@@ -864,7 +846,7 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
 
     def setUp(self):
         self.redis = fakeredis.FakeStrictRedis()
-        self.breaker_kwargs = {'fail_max': 3000, 'reset_timeout': 1,'state_storage': CircuitRedisStorage('closed', self.redis)}
+        self.breaker_kwargs = {'fail_max': 3000, 'reset_timeout': 1.5,'state_storage': CircuitRedisStorage('closed', self.redis)}
         self.breaker = CircuitBreaker(**self.breaker_kwargs)
 
     def tearDown(self):
@@ -885,8 +867,7 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
         setattr(obj, func.__name__, MethodType(func, self.breaker))
 
     def test_fail_thread_safety(self):
-        """CircuitBreaker: it should compute a failed call atomically to
-        avoid race conditions.
+        """CircuitBreaker: it should increment the fail counter atomically.
         """
         # Create a specific exception to avoid masking other errors
         class SpecificException(Exception):
@@ -907,29 +888,6 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
         self._mock_function(self.breaker, _inc_counter)
         self._start_threads(trigger_error, 3)
         self.assertEqual(1500, self.breaker.fail_counter)
-
-    def test_success_thread_safety(self):
-        """CircuitBreaker: it should compute a successful call atomically
-        to avoid race conditions.
-        """
-        @self.breaker
-        def suc(): return True
-
-        def trigger_success():
-            for n in range(500):
-                suc()
-
-        class SuccessListener(CircuitBreakerListener):
-            def success(self, cb):
-                c = 0
-                if hasattr(cb, '_success_counter'):
-                    c = cb._success_counter
-                sleep(0.00005)
-                cb._success_counter = c + 1
-
-        self.breaker.add_listener(SuccessListener())
-        self._start_threads(trigger_success, 3)
-        self.assertEqual(1500, self.breaker._success_counter)
 
     def test_half_open_thread_safety(self):
         """CircuitBreaker: it should allow only one trial call when the
@@ -985,10 +943,14 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
             def before_call(self, cb, func, *args, **kwargs):
                 sleep(0.00005)
 
+            def state_change(self, cb, old_state, new_state):
+                if new_state.name == STATE_HALF_OPEN:
+                    raise Exception("Circuit is open; increase reset timeout on test")
+
         self.breaker.add_listener(SleepListener())
         num_threads = 3
         self._start_threads(trigger_error, num_threads)
-        self.assertTrue(self.breaker.fail_counter < self.breaker.fail_max + num_threads)
+        self.assertLess(self.breaker.fail_counter, self.breaker.fail_max + num_threads)
 
 
 if __name__ == "__main__":
