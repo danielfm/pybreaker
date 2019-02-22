@@ -444,6 +444,56 @@ class CircuitBreakerConfigurationTestCase(object):
         self.assertRaises(KeyError, self.breaker.call, err_3)
         self.assertEqual(0, self.breaker.fail_counter)
 
+    def test_excluded_callable_exceptions(self):
+        """CircuitBreaker: it should ignore specific exceptions that return true from a filtering callable.
+        """
+        class TestException(Exception):
+            def __init__(self, value):
+                self.value = value
+
+        filter_function = lambda e: type(e) == TestException and e.value == 'good'
+        self.breaker = CircuitBreaker(exclude=[filter_function])
+
+        def err_1(): raise TestException("bad")
+        def err_2(): raise TestException("good")
+        def err_3(): raise NotImplementedError()
+
+        self.assertRaises(TestException, self.breaker.call, err_1)
+        self.assertEqual(1, self.breaker.fail_counter)
+
+        self.assertRaises(TestException, self.breaker.call, err_2)
+        self.assertEqual(0, self.breaker.fail_counter)
+
+        self.assertRaises(NotImplementedError, self.breaker.call, err_3)
+        self.assertEqual(1, self.breaker.fail_counter)
+
+    def test_excluded_callable_and_types_exceptions(self):
+        """CircuitBreaker: it should allow a mix of exclusions that includes both filter functions and types.
+        """
+        class TestException(Exception):
+            def __init__(self, value):
+                self.value = value
+
+        filter_function = lambda e: type(e) == TestException and e.value == 'good'
+        self.breaker = CircuitBreaker(exclude=[filter_function, LookupError])
+
+        def err_1(): raise TestException("bad")
+        def err_2(): raise TestException("good")
+        def err_3(): raise NotImplementedError()
+        def err_4(): raise LookupError()
+
+        self.assertRaises(TestException, self.breaker.call, err_1)
+        self.assertEqual(1, self.breaker.fail_counter)
+
+        self.assertRaises(TestException, self.breaker.call, err_2)
+        self.assertEqual(0, self.breaker.fail_counter)
+
+        self.assertRaises(NotImplementedError, self.breaker.call, err_3)
+        self.assertEqual(1, self.breaker.fail_counter)
+
+        self.assertRaises(LookupError, self.breaker.call, err_4)
+        self.assertEqual(0, self.breaker.fail_counter)
+
     def test_add_excluded_exception(self):
         """CircuitBreaker: it should allow the user to exclude an exception at a
         later time.

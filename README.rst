@@ -216,6 +216,14 @@ In that case, when any function guarded by that circuit breaker raises
 ``CustomerValidationError`` (or any exception derived from
 ``CustomerValidationError``), that call won't be considered a system failure.
 
+So as to cover cases where the exception class alone is not enough to determine
+whether it represents a system error, you may also pass a callable rather than
+a type::
+
+    db_breaker = CircuitBreaker(exclude=[lambda e: type(e) == HTTPError and e.status_code < 500])
+
+You may mix types and filter callables freely.
+
 
 Monitoring and Management
 `````````````````````````

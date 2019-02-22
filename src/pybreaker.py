@@ -195,10 +195,14 @@ class CircuitBreaker(object):
         system malfunction. Business exceptions should not cause this circuit
         breaker to open.
         """
-        texc = type(exception)
-        for exc in self._excluded_exceptions:
-            if issubclass(texc, exc):
-                return False
+        exception_type = type(exception)
+        for exclusion in self._excluded_exceptions:
+            if type(exclusion) is type:
+                if issubclass(exception_type, exclusion):
+                    return False
+            elif callable(exclusion):
+                if exclusion(exception):
+                    return False
         return True
 
     def call(self, func, *args, **kwargs):
