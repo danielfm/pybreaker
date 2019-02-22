@@ -206,8 +206,7 @@ class CircuitBreaker(object):
         Calls `func` with the given `args` and `kwargs` according to the rules
         implemented by the current state of this circuit breaker.
         """
-        with self._lock:
-            return self.state.call(func, *args, **kwargs)
+        return self.state.call(func, *args, **kwargs)
 
     def call_async(self, func, *args, **kwargs):
         """
@@ -218,9 +217,8 @@ class CircuitBreaker(object):
         """
         @gen.coroutine
         def wrapped():
-            with self._lock:
-                ret = yield self.state.call_async(func, *args, **kwargs)
-                raise gen.Return(ret)
+            ret = yield self.state.call_async(func, *args, **kwargs)
+            raise gen.Return(ret)
         return wrapped()
 
     def open(self):
@@ -399,46 +397,53 @@ class CircuitMemoryStorage(CircuitBreakerStorage):
         self._fail_counter = 0
         self._opened_at = None
         self._state = state
+        self._lock = threading.Lock()
 
     @property
     def state(self):
         """
         Returns the current circuit breaker state.
         """
-        return self._state
+        with self._lock:
+            return self._state
 
     @state.setter
     def state(self, state):
         """
         Set the current circuit breaker state to `state`.
         """
-        self._state = state
+        with self._lock:
+            self._state = state
 
     def increment_counter(self):
         """
         Increases the failure counter by one.
         """
-        self._fail_counter += 1
+        with self._lock:
+            self._fail_counter += 1
 
     def reset_counter(self):
         """
         Sets the failure counter to zero.
         """
-        self._fail_counter = 0
+        with self._lock:
+            self._fail_counter = 0
 
     @property
     def counter(self):
         """
         Returns the current value of the failure counter.
         """
-        return self._fail_counter
+        with self._lock:
+            return self._fail_counter
 
     @property
     def opened_at(self):
         """
         Returns the most recent value of when the circuit was opened.
         """
-        return self._opened_at
+        with self._lock:
+            return self._opened_at
 
     @opened_at.setter
     def opened_at(self, datetime):
@@ -446,7 +451,8 @@ class CircuitMemoryStorage(CircuitBreakerStorage):
         Sets the most recent value of when the circuit was opened to
         `datetime`.
         """
-        self._opened_at = datetime
+        with self._lock:
+            self._opened_at = datetime
 
 
 class CircuitRedisStorage(CircuitBreakerStorage):
@@ -650,6 +656,7 @@ class CircuitBreakerState(object):
         """
         self._breaker = cb
         self._name = name
+        self._counter_change_lock = threading.Lock()
 
     @property
     def name(self):
@@ -663,10 +670,11 @@ class CircuitBreakerState(object):
         Handles a failed call to the guarded operation.
         """
         if self._breaker.is_system_error(exc):
-            self._breaker._inc_counter()
+            with self._counter_change_lock:
+                self._breaker._inc_counter()
+                self.on_failure(exc)
             for listener in self._breaker.listeners:
                 listener.failure(self._breaker, exc)
-            self.on_failure(exc)
         else:
             self._handle_success()
         raise exc
@@ -675,8 +683,9 @@ class CircuitBreakerState(object):
         """
         Handles a successful call to the guarded operation.
         """
-        self._breaker._state_storage.reset_counter()
-        self.on_success()
+        with self._counter_change_lock:
+            self._breaker._state_storage.reset_counter()
+            self.on_success()
         for listener in self._breaker.listeners:
             listener.success(self._breaker)
 
