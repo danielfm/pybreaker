@@ -262,7 +262,7 @@ class CircuitBreakerStorageBasedTestCase(object):
         self.assertRaises(NotImplementedError, e.send, True)
         self.assertEqual(1, self.breaker.fail_counter)
         self.assertTrue(next(s))
-        self.assertRaises(StopIteration, lambda: next(s))
+        self.assertRaises((StopIteration, RuntimeError), lambda: next(s))
         self.assertEqual(0, self.breaker.fail_counter)
 
 

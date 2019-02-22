@@ -14,6 +14,10 @@ matrix:
           python: 3.5
         - os: linux
           python: 3.6
+        - os: linux
+          python: 3.7
+          dist: xenial
+          sudo: true
 install:
     - if [[ $TRAVIS_PYTHON_VERSION == '3.2' || $TRAVIS_PYTHON_VERSION == '3.3' ]]; then travis_retry pip install tornado==4.1; else travis_retry pip install 'tornado==5.*'; fi
 script: python setup.py test
