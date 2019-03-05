@@ -145,6 +145,9 @@ class CircuitBreaker(object):
         """
         with self._lock:
             if self._state.name != state_str:
+                self._state_storage.state = state_str
+                if state_str == STATE_OPEN:
+                    self._state_storage.opened_at = datetime.utcnow()
                 self._state = self._create_new_state(
                     state_str, prev_state=self._state, notify=True)
 
@@ -232,9 +235,7 @@ class CircuitBreaker(object):
         Opens the circuit, e.g., the following calls will immediately fail
         until timeout elapses.
         """
-        with self._lock:
-            self._state_storage.opened_at = datetime.utcnow()
-            self.state = self._state_storage.state = STATE_OPEN
+        self.state = STATE_OPEN
 
     def half_open(self):
         """
@@ -242,15 +243,13 @@ class CircuitBreaker(object):
         opens the circuit if the call fails (or closes the circuit if the call
         succeeds).
         """
-        with self._lock:
-            self.state = self._state_storage.state = STATE_HALF_OPEN
+        self.state = STATE_HALF_OPEN
 
     def close(self):
         """
         Closes the circuit, e.g. lets the following calls execute as usual.
         """
-        with self._lock:
-            self.state = self._state_storage.state = STATE_CLOSED
+        self.state = STATE_CLOSED
 
     def __call__(self, *call_args, **call_kwargs):
         """
