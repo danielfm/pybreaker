@@ -11,3 +11,6 @@ dist/
 .idea
 .ropeproject/
 *.iml
+
+# Visual Studio Code
+/.vscode/
