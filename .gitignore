@@ -14,3 +14,6 @@ dist/
 
 # Visual Studio Code
 /.vscode/
+
+# VirtualEnv
+/venv/
