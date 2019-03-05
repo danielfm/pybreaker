@@ -144,8 +144,9 @@ class CircuitBreaker(object):
         Set cached state and notify listeners of newly cached state.
         """
         with self._lock:
-            self._state = self._create_new_state(
-                state_str, prev_state=self._state, notify=True)
+            if self._state.name != state_str:
+                self._state = self._create_new_state(
+                    state_str, prev_state=self._state, notify=True)
 
     @property
     def current_state(self):
