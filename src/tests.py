@@ -4,6 +4,7 @@ import unittest
 from contextlib import contextmanager
 from datetime import datetime
 from time import sleep
+from collections import deque
 
 import mock
 from tornado import gen
@@ -836,6 +837,52 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         num_threads = 3
         self._start_threads(trigger_error, num_threads)
         self.assertLess(self.breaker.fail_max, self.breaker.fail_counter + num_threads)
+
+
+    def test_failure_cycle_and_event_changes(self):
+        """CircuitBreaker: it should fail and re-open successfuly in a 
+        multi-threaded environment, and should not send multiple state
+        change events.
+        """
+        self.breaker = CircuitBreaker(fail_max=1000, reset_timeout=0.1)
+
+        state_changes_lock = threading.Lock()
+        state_changes = []
+
+        operations_lock = threading.Lock()
+        operations = deque((["exception"] * 1005) + (["pass"] * 10000))
+
+        @self.breaker
+        def action(operation): 
+            if operation == 'exception': raise Exception()
+            elif operation == 'pass': pass
+
+        def next_operation():
+            with operations_lock:
+                try:
+                    return operations.popleft()
+                except IndexError:
+                    return None
+
+        def trigger_error():
+            operation = next_operation()
+            while operation is not None:
+                try:
+                    sleep(0.0005) 
+                    action(operation)
+                except: pass
+                operation = next_operation()
+
+        class SleepListener(CircuitBreakerListener):
+            def state_change(self, cb, old_state, new_state):
+                with state_changes_lock:
+                    state_changes.append(new_state.name)
+
+        self.breaker.add_listener(SleepListener())
+        num_threads = 8
+        self._start_threads(trigger_error, num_threads)
+
+        self.assertEqual(state_changes, ["open", "half-open", "closed"])
 
 
 class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
