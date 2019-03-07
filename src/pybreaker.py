@@ -130,13 +130,14 @@ class CircuitBreaker(object):
         Update (if needed) and returns the cached state object.
         """
         # Ensure cached state is up-to-date
-        if self.current_state != self._state.name:
-            # If cached state is out-of-date, that means that it was likely
-            # changed elsewhere (e.g. another process instance). We still send
-            # out a notification, informing others that this particular circuit
-            # breaker instance noticed the changed circuit.
-            self.state = self.current_state
-        return self._state
+        with self._lock:
+            if self.current_state != self._state.name:
+                # If cached state is out-of-date, that means that it was likely
+                # changed elsewhere (e.g. another process instance). We still send
+                # out a notification, informing others that this particular circuit
+                # breaker instance noticed the changed circuit.
+                self.state = self.current_state
+            return self._state
 
     @state.setter
     def state(self, state_str):
@@ -144,7 +145,7 @@ class CircuitBreaker(object):
         Set cached state and notify listeners of newly cached state.
         """
         with self._lock:
-            if self._state.name != state_str:
+            if self._state.name != state_str or self.current_state != state_str:
                 self._state_storage.state = state_str
                 if state_str == STATE_OPEN:
                     self._state_storage.opened_at = datetime.utcnow()
