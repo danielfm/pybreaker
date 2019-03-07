@@ -874,8 +874,10 @@ class CircuitOpenState(CircuitBreakerState):
             error_msg = 'Timeout not elapsed yet, circuit breaker still open'
             raise CircuitBreakerError(error_msg)
         else:
-            self._breaker.half_open()
-            return self._breaker.call(func, *args, **kwargs)
+            with self._breaker._lock:
+                if self._breaker.current_state == STATE_OPEN:
+                    self._breaker.half_open()
+                    return self._breaker.call(func, *args, **kwargs)
 
     def call(self, func, *args, **kwargs):
         """
