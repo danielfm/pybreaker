@@ -688,7 +688,10 @@ class CircuitBreakerState(object):
                 self._breaker._inc_counter()
                 self.on_failure(exc)
             for listener in self._breaker.listeners:
-                listener.failure(self._breaker, exc)
+                try:
+                    listener.failure(self._breaker, exc)
+                except:
+                    pass
         else:
             self._handle_success()
 
@@ -703,7 +706,10 @@ class CircuitBreakerState(object):
             self._breaker._state_storage.reset_counter()
             self.on_success()
         for listener in self._breaker.listeners:
-            listener.success(self._breaker)
+            try:
+                listener.success(self._breaker)
+            except:
+                pass
 
     def call(self, func, *args, **kwargs):
         """
@@ -714,7 +720,10 @@ class CircuitBreakerState(object):
 
         self.before_call(func, *args, **kwargs)
         for listener in self._breaker.listeners:
-            listener.before_call(self._breaker, func, *args, **kwargs)
+            try:
+                listener.before_call(self._breaker, func, *args, **kwargs)
+            except:
+                pass
 
         try:
             ret = func(*args, **kwargs)
@@ -740,7 +749,10 @@ class CircuitBreakerState(object):
 
             self.before_call(func, *args, **kwargs)
             for listener in self._breaker.listeners:
-                listener.before_call(self._breaker, func, *args, **kwargs)
+                try:
+                    listener.before_call(self._breaker, func, *args, **kwargs)
+                except:
+                    pass
 
             try:
                 ret = yield func(*args, **kwargs)
@@ -811,7 +823,10 @@ class CircuitClosedState(CircuitBreakerState):
             # storage).
             self._breaker._state_storage.reset_counter()
             for listener in self._breaker.listeners:
-                listener.state_change(self._breaker, prev_state, self)
+                try:
+                    listener.state_change(self._breaker, prev_state, self)
+                except:
+                    pass
 
     def on_failure(self, exc):
         """
@@ -842,7 +857,10 @@ class CircuitOpenState(CircuitBreakerState):
         super(CircuitOpenState, self).__init__(cb, STATE_OPEN)
         if notify:
             for listener in self._breaker.listeners:
-                listener.state_change(self._breaker, prev_state, self)
+                try:
+                    listener.state_change(self._breaker, prev_state, self)
+                except:
+                    pass
 
     def before_call(self, func, *args, **kwargs):
         """
@@ -884,7 +902,10 @@ class CircuitHalfOpenState(CircuitBreakerState):
         super(CircuitHalfOpenState, self).__init__(cb, STATE_HALF_OPEN)
         if notify:
             for listener in self._breaker._listeners:
-                listener.state_change(self._breaker, prev_state, self)
+                try:
+                    listener.state_change(self._breaker, prev_state, self)
+                except:
+                    pass
 
     def on_failure(self, exc):
         """

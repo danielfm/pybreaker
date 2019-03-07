@@ -213,6 +213,29 @@ class CircuitBreakerStorageBasedTestCase(object):
         self.assertEqual('closed->open,open->half-open,half-open->closed,', \
                          listener.out)
 
+    def test_transition_events(self):
+        """CircuitBreaker: it should not be affected by exceptions in listeners.
+        """
+        class Listener(CircuitBreakerListener):
+            def before_call(self, cb, func, *args, **kwargs):
+                raise Exception()
+
+            def failure(self, cb, exc):
+                raise Exception()
+
+            def success(self, cb):
+                raise Exception()
+
+            def state_change(self, cb, old_state, new_state):
+                raise Exception()
+
+        listener = Listener()
+        self.breaker = CircuitBreaker(listeners=(listener,), **self.breaker_kwargs)
+        self.assertEqual('closed', self.breaker.current_state)
+
+        self.breaker.open()
+        self.assertEqual('open', self.breaker.current_state)
+
     def test_call_events(self):
         """CircuitBreaker: it should call the appropriate functions on every
         successful/failed call.
