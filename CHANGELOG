@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.5.0 (March 19, 2019)
+
+* Add support for Python 3.7, where Stopiteration behaviour changes due to PEP 479 (Thanks @jshiell)
+* Allow excluded exceptions to be specified as callables (Thanks @jshiell)
+
 Version 0.4.5 (October 26, 2018)
 
 * Fix bug with timeout window growing with additional breakers defined (Thanks @shawndrape)
@@ -11,36 +16,36 @@ Version 0.4.4 (May 21, 2018)
 
 Version 0.4.3 (May 21, 2018)
 
-* Re-initialize state on Redis if missing (Thanks @scascketta!)
-* Add trigger exception into the CircuitBreakerError (Thanks @tczhaodachuan!)
+* Re-initialize state on Redis if missing (Thanks @scascketta)
+* Add trigger exception into the CircuitBreakerError (Thanks @tczhaodachuan)
 
 Version 0.4.2 (November 9, 2017)
 
-* Add optional name to CircuitBreaker (Thanks @chrisvaughn!)
+* Add optional name to CircuitBreaker (Thanks @chrisvaughn)
 
 Version 0.4.1 (October 2, 2017)
 
-* Get initial CircuitBreaker state from state_storage (Thanks @alukach!)
+* Get initial CircuitBreaker state from state_storage (Thanks @alukach)
 
 Version 0.4.0 (June 23, 2017)
 
-* Added optional support for asynchronous Tornado calls (Thanks @jeffrand!)
-* Fixed typo (issue #19) (Thanks @jeffrand!)
+* Added optional support for asynchronous Tornado calls (Thanks @jeffrand)
+* Fixed typo (issue #19) (Thanks @jeffrand)
 
 
 Version 0.3.3 (June 2, 2017)
 
 * Fixed bug that caused pybreaker to break (!) if redis package was not
-  present (Thanks @phillbaker!)
+  present (Thanks @phillbaker)
 
 
 Version 0.3.2 (June 1, 2017)
 
-* Added support for optional Redis backing (Thanks @phillbaker!)
+* Added support for optional Redis backing (Thanks @phillbaker)
 * Fixed: Should listener.failure be called when the circuit is closed
-  and a call fails? (Thanks @sj175 for the report!)
+  and a call fails? (Thanks @sj175 for the report)
 * Fixed: Wrapped function is called twice during successful call in open
-  state (Thanks @jstordeur!)
+  state (Thanks @jstordeur)
 
 
 Version 0.3.1 (January 25, 2017)
@@ -50,12 +55,12 @@ Version 0.3.1 (January 25, 2017)
 
 Version 0.3.0 (September 1, 2016)
 
-* Fixed generator issue. (Thanks @dpdornseifer!)
+* Fixed generator issue. (Thanks @dpdornseifer)
 
 
 Version 0.2.3 (July 25, 2014)
 
-* Added support to generator functions. (Thanks @mauriciosl!)
+* Added support to generator functions. (Thanks @mauriciosl)
 
 
 Version 0.2.1 (October 23, 2010)
