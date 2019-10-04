@@ -1,6 +1,7 @@
 #-*- coding:utf-8 -*-
 
 import unittest
+from contextlib import contextmanager
 from datetime import datetime
 from time import sleep
 
@@ -264,6 +265,28 @@ class CircuitBreakerStorageBasedTestCase(object):
         self.assertTrue(next(s))
         self.assertRaises((StopIteration, RuntimeError), lambda: next(s))
         self.assertEqual(0, self.breaker.fail_counter)
+
+    def test_contextmanager(self):
+        """CircuitBreaker: it should catch in a with statement
+        """
+        class Foo:
+            @contextmanager
+            @self.breaker
+            def wrapper(self):
+                try:
+                    yield
+                except NotImplementedError as e:
+                    raise ValueError()
+
+            def foo(self):
+                with self.wrapper():
+                    raise NotImplementedError()
+
+
+        try:
+            Foo().foo()
+        except ValueError as e:
+            self.assertTrue(isinstance(e, ValueError))
 
 
 class CircuitBreakerConfigurationTestCase(object):
