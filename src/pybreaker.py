@@ -662,7 +662,7 @@ class CircuitBreakerState(object):
         """
         return self._name
 
-    def _handle_error(self, exc):
+    def _handle_error(self, exc, reraise=True):
         """
         Handles a failed call to the guarded operation.
         """
@@ -673,7 +673,9 @@ class CircuitBreakerState(object):
             self.on_failure(exc)
         else:
             self._handle_success()
-        raise exc
+
+        if reraise:
+            raise exc
 
     def _handle_success(self):
         """
@@ -742,7 +744,8 @@ class CircuitBreakerState(object):
             self._handle_success()
             return
         except BaseException as e:
-            self._handle_error(e)
+            self._handle_error(e, reraise=False)
+            wrapped_generator.throw(e)
 
     def before_call(self, func, *args, **kwargs):
         """
