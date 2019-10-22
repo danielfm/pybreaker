@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.6.0 (October 22, 2019)
+
+* Use generator.throw to fix generator error raising (Thanks @phillbaker)
+
 Version 0.5.0 (March 19, 2019)
 
 * Add support for Python 3.7, where Stopiteration behaviour changes due to PEP 479 (Thanks @jshiell)
