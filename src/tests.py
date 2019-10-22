@@ -6,7 +6,6 @@ from datetime import datetime
 from time import sleep
 
 import mock
-from pytest import fail
 from tornado import gen
 from tornado import testing
 
@@ -77,7 +76,7 @@ class CircuitBreakerStorageBasedTestCase(object):
         # Circuit should open
         try:
             self.breaker.call(func)
-            fail('CircuitBreakerError should throw')
+            self.fail('CircuitBreakerError should throw')
         except CircuitBreakerError as e:
             import traceback
             self.assertIn('NotImplementedError', traceback.format_exc())
