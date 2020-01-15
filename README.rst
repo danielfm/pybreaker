@@ -71,7 +71,8 @@ e.g., live across requests.
   more likely to fail, so make sure to always use timeouts when accessing such
   services if there's support at the API level.
 
-If you'd like to use the Redis backing, initialize the ``CircuitBreaker`` with a ``CircuitRedisStorage``::
+If you'd like to use the Redis backing, initialize the ``CircuitBreaker`` with
+a ``CircuitRedisStorage``::
 
     import pybreaker
     import redis
@@ -82,14 +83,17 @@ If you'd like to use the Redis backing, initialize the ``CircuitBreaker`` with a
         reset_timeout=60,
         state_storage=pybreaker.CircuitRedisStorage(pybreaker.STATE_CLOSED, redis))
 
-**Do not** initialize the Redis connection with the `decode_responses` set to True, this will force returning ascii objects from redis and in python3+ will fail with:
+**Do not** initialize the Redis connection with the ``decode_responses`` set to
+``True``, this will force returning ascii objects from redis and in Python3+ will
+fail with:
 
     `AttributeError: 'str' object has no attribute 'decode'`
 
 
 .. note::
 
-  You may want to reuse a connection already created in your application, if you're using ``django_redis`` for example::
+  You may want to reuse a connection already created in your application, if you're
+  using ``django_redis`` for example::
 
     import pybreaker
     from django_redis import get_redis_connection
