@@ -30,7 +30,7 @@ Features
 Requirements
 ------------
 
-* `Python`_ 2.7+ (or Python 3.0+)
+* `Python`_ 3.4+
 
 
 Installation
@@ -84,7 +84,7 @@ a ``CircuitRedisStorage``::
         state_storage=pybreaker.CircuitRedisStorage(pybreaker.STATE_CLOSED, redis))
 
 **Do not** initialize the Redis connection with the ``decode_responses`` set to
-``True``, this will force returning ascii objects from redis and in Python3+ will
+``True``, this will force returning ASCII objects from redis and in Python3+ will
 fail with:
 
     `AttributeError: 'str' object has no attribute 'decode'`
