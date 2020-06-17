@@ -104,6 +104,24 @@ fail with:
         state_storage=pybreaker.CircuitRedisStorage(pybreaker.STATE_CLOSED, get_redis_connection('default')))
 
 
+Multiplexing
+````````````
+It might happen that you want to distinguish some calls to a function, for
+example, if you have a generic send function for an external API, while you
+want a separate circuit breaker per endpoint. For this case, a
+``CircuitBreakerMultiplexer`` has been provided.
+
+The ``CircuitBreakerMultiplexer`` takes an extra argument ``break_on`` in its
+decorator, that lets you select the parameter you want to distinguish on.
+Internally, multiple independent circuit breakers are created. This does not
+need to be a keyword argument; positional arguments are supported as well::
+
+    circuit_breaker = CircuitBreakerMultiplexer()
+
+    @circuit_breaker(break_on=path)
+    def call_api(path, params):
+        pass
+
 Event Listening
 ```````````````
 
