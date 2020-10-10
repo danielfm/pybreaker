@@ -277,6 +277,6 @@ Bitcoin: ``bc1qtwyfcj7pssk0krn5wyfaca47caar6nk9yyc4mu``
 
 .. _Python: http://python.org
 .. _Jython: http://jython.org
-.. _Release It!: http://pragprog.com/titles/mnee/release-it
+.. _Release It!: https://pragprog.com/titles/mnee2/release-it-second-edition/
 .. _PyPI: http://pypi.python.org
 .. _Git: http://git-scm.com
