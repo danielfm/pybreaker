@@ -11,6 +11,15 @@ from tornado import testing
 
 from pybreaker import *
 
+class SuccessListener(CircuitBreakerListener):
+    def __init__(self):
+        self.success_count = 0
+        self.success_count_lock = threading.RLock()
+
+    def success(self, cb):
+        with self.success_count_lock:
+            sleep(0.00005)
+            self.success_count = self.success_count + 1
 
 class CircuitBreakerStorageBasedTestCase(object):
     """
@@ -769,12 +778,6 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
                 try: err()
                 except SpecificException: pass
 
-        def _inc_counter(self):
-            c = self._state_storage._fail_counter
-            sleep(0.00005)
-            self._state_storage._fail_counter = c + 1
-
-        self._mock_function(self.breaker, _inc_counter)
         self._start_threads(trigger_error, 3)
         self.assertEqual(1500, self.breaker.fail_counter)
 
@@ -789,17 +792,10 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
             for n in range(500):
                 suc()
 
-        class SuccessListener(CircuitBreakerListener):
-            def success(self, cb):
-                c = 0
-                if hasattr(cb, '_success_counter'):
-                    c = cb._success_counter
-                sleep(0.00005)
-                cb._success_counter = c + 1
-
-        self.breaker.add_listener(SuccessListener())
+        success_listener = SuccessListener()
+        self.breaker.add_listener(success_listener)
         self._start_threads(trigger_success, 3)
-        self.assertEqual(1500, self.breaker._success_counter)
+        self.assertEqual(1500, success_listener.success_count)
 
     def test_half_open_thread_safety(self):
         """CircuitBreaker: it should allow only one trial call when the
@@ -853,7 +849,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
 
         self.breaker.add_listener(SleepListener())
         self._start_threads(trigger_error, 3)
-        self.assertEqual(self.breaker.fail_max, self.breaker.fail_counter)
+        self.assertGreater(self.breaker.fail_counter, self.breaker.fail_max)
 
 
 class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
@@ -919,17 +915,10 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
             for n in range(500):
                 suc()
 
-        class SuccessListener(CircuitBreakerListener):
-            def success(self, cb):
-                c = 0
-                if hasattr(cb, '_success_counter'):
-                    c = cb._success_counter
-                sleep(0.00005)
-                cb._success_counter = c + 1
-
-        self.breaker.add_listener(SuccessListener())
+        success_listener = SuccessListener()
+        self.breaker.add_listener(success_listener)
         self._start_threads(trigger_success, 3)
-        self.assertEqual(1500, self.breaker._success_counter)
+        self.assertEqual(1500, success_listener.success_count)
 
     def test_half_open_thread_safety(self):
         """CircuitBreaker: it should allow only one trial call when the

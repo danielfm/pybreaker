@@ -72,7 +72,8 @@ class CircuitBreaker(object):
         """
         Returns the current number of consecutive failures.
         """
-        return self._state_storage.counter
+        with self._lock:
+            return self._state_storage.counter
 
     @property
     def fail_max(self):
@@ -152,7 +153,8 @@ class CircuitBreaker(object):
         Returns a string that identifies the state of the circuit breaker as
         reported by the _state_storage. i.e., 'closed', 'open', 'half-open'.
         """
-        return self._state_storage.state
+        with self._lock:
+            return self._state_storage.state
 
     @property
     def excluded_exceptions(self):
@@ -187,7 +189,8 @@ class CircuitBreaker(object):
         """
         Increments the counter of failed calls.
         """
-        self._state_storage.increment_counter()
+        with self._lock:
+            self._state_storage.increment_counter()
 
     def is_system_error(self, exception):
         """
@@ -210,8 +213,7 @@ class CircuitBreaker(object):
         Calls `func` with the given `args` and `kwargs` according to the rules
         implemented by the current state of this circuit breaker.
         """
-        with self._lock:
-            return self.state.call(func, *args, **kwargs)
+        return self.state.call(func, *args, **kwargs)
 
     def call_async(self, func, *args, **kwargs):
         """
@@ -222,9 +224,8 @@ class CircuitBreaker(object):
         """
         @gen.coroutine
         def wrapped():
-            with self._lock:
-                ret = yield self.state.call_async(func, *args, **kwargs)
-                raise gen.Return(ret)
+            ret = yield self.state.call_async(func, *args, **kwargs)
+            raise gen.Return(ret)
         return wrapped()
 
     def open(self):
@@ -332,6 +333,7 @@ class CircuitBreakerStorage(object):
         Creates a new instance identified by `name`.
         """
         self._name = name
+        self._count_lock = threading.RLock()
 
     @property
     def name(self):
@@ -422,20 +424,23 @@ class CircuitMemoryStorage(CircuitBreakerStorage):
         """
         Increases the failure counter by one.
         """
-        self._fail_counter += 1
+        with self._count_lock:
+            self._fail_counter += 1
 
     def reset_counter(self):
         """
         Sets the failure counter to zero.
         """
-        self._fail_counter = 0
+        with self._count_lock:
+            self._fail_counter = 0
 
     @property
     def counter(self):
         """
         Returns the current value of the failure counter.
         """
-        return self._fail_counter
+        with self._count_lock:
+            return self._fail_counter
 
     @property
     def opened_at(self):
@@ -533,7 +538,8 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Increases the failure counter by one.
         """
         try:
-            self._redis.incr(self._namespace('fail_counter'))
+            with self._count_lock:
+                self._redis.incr(self._namespace('fail_counter'))
         except self.RedisError:
             self.logger.error('RedisError', exc_info=True)
             pass
@@ -543,7 +549,8 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Sets the failure counter to zero.
         """
         try:
-            self._redis.set(self._namespace('fail_counter'), 0)
+            with self._count_lock:
+                self._redis.set(self._namespace('fail_counter'), 0)
         except self.RedisError:
             self.logger.error('RedisError', exc_info=True)
             pass
@@ -554,11 +561,12 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Returns the current value of the failure counter.
         """
         try:
-            value = self._redis.get(self._namespace('fail_counter'))
-            if value:
-                return int(value)
-            else:
-                return 0
+            with self._count_lock:
+                value = self._redis.get(self._namespace('fail_counter'))
+                if value:
+                    return int(value)
+                else:
+                    return 0
         except self.RedisError:
             self.logger.error('RedisError: Assuming no errors', exc_info=True)
             return 0
