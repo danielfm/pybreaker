@@ -27,4 +27,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: "x64"
       - name: Python ${{ matrix.python-version }} tests
-        run: python setup.py test
+        run: |
+          pip install tox
+          tox

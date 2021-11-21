@@ -28,6 +28,4 @@ setup(
     py_modules=['pybreaker'],
     include_package_data=True,
     zip_safe=False,
-    test_suite='tests',
-    tests_require=['mock', 'fakeredis', 'redis<3.6.0'],
 )
