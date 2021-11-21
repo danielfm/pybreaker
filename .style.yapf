@@ -1,0 +1,13 @@
+[style]
+based_on_style = pep8
+column_limit = 80
+coalesce_brackets = true
+split_before_dict_set_generator = false
+split_complex_comprehension = true
+indent_dictionary_value = false
+allow_split_before_dict_value = false
+split_arguments_when_comma_terminated = true
+each_dict_entry_on_separate_line = false
+dedent_closing_brackets = true
+join_multiple_lines = false
+split_before_first_argument = true
