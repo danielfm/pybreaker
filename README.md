@@ -195,3 +195,9 @@ Setup your local environment using:
 
     # Run tests
     tox
+
+    # Format code unless your editor does it
+    yapf -rip src
+
+    # Lint code unless your editor does it
+    flake8 src

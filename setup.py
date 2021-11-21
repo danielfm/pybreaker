@@ -7,6 +7,7 @@ setup(
     version='0.1.0',
     description='Python implementation of the Circuit Breaker pattern',
     long_description=open('README.md', 'r').read(),
+    long_description_content_type='text/markdown',
     keywords=['design', 'pattern', 'circuit', 'breaker', 'integration'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -20,7 +21,7 @@ setup(
         'Any',
     ],
     license='BSD',
-    author='Mason Data, Daniel Fernandes Martins',
+    author='William Tisäter',
     url='http://github.com/tiwilliam/asyncbreaker',
     package_dir={'': 'src'},
     py_modules=['asyncbreaker'],

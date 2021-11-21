@@ -1,0 +1,12 @@
+name: asyncbreaker
+
+up:
+    - python: 3.10.0
+    - pip:
+          - tox
+          - flake8
+          - yapf
+commands:
+    test: tox
+    upload:
+        - pypi: upload

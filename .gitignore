@@ -15,3 +15,4 @@ dist/
 
 # VirtualEnv
 /venv/
+/.shadowenv.d/
