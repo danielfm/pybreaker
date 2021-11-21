@@ -6,6 +6,7 @@ build/
 dist/
 *.egg-info/
 .eggs/
+.tox/
 
 # Pycharm directories 
 .idea

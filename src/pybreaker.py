@@ -1,43 +1,39 @@
-#-*- coding:utf-8 -*-
-
 """
-Threadsafe pure-Python implementation of the Circuit Breaker pattern, described
-by Michael T. Nygard in his book 'Release It!'.
+Thread-safe pure-Python implementation of the Circuit Breaker pattern,
+described by Michael T. Nygard in his book 'Release It!'.
 
 For more information on this and other patterns and best practices, buy the
-book at https://pragprog.com/titles/mnee2/release-it-second-edition/
+book at https://pragprog.com/titles/mnee2/release-it-second-edition/.
 """
 
-import types
-import time
+import asyncio
 import calendar
 import logging
+import threading
+import time
+import types
 from datetime import datetime, timedelta
 from functools import wraps
-import threading
-import six
-import sys
-
-try:
-    from tornado import gen
-    HAS_TORNADO_SUPPORT = True
-except ImportError:
-    HAS_TORNADO_SUPPORT = False
-
-try:
-    from redis.exceptions import RedisError
-    HAS_REDIS_SUPPORT = True
-except ImportError:
-    HAS_REDIS_SUPPORT = False
 
 __all__ = (
-    'CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError',
-    'CircuitMemoryStorage', 'CircuitRedisStorage', 'STATE_OPEN', 'STATE_CLOSED',
-    'STATE_HALF_OPEN',)
+    'CircuitBreaker',
+    'CircuitBreakerListener',
+    'CircuitBreakerError',
+    'CircuitMemoryStorage',
+    'STATE_OPEN',
+    'STATE_CLOSED',
+    'STATE_HALF_OPEN',
+)
 
 STATE_OPEN = 'open'
 STATE_CLOSED = 'closed'
 STATE_HALF_OPEN = 'half-open'
+
+try:
+    from redis.exceptions import RedisError  # noqa
+    HAS_REDIS_SUPPORT = True
+except ImportError:
+    HAS_REDIS_SUPPORT = False
 
 
 class CircuitBreaker(object):
@@ -45,19 +41,28 @@ class CircuitBreaker(object):
     More abstractly, circuit breakers exists to allow one subsystem to fail
     without destroying the entire system.
 
-    This is done by wrapping dangerous operations (typically integration points)
-    with a component that can circumvent calls when the system is not healthy.
+    This is done by wrapping dangerous operations (typically integration
+    points) with a component that can circumvent calls when the system is
+    not healthy.
 
     This pattern is described by Michael T. Nygard in his book 'Release It!'.
     """
-
-    def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
-                 listeners=None, state_storage=None, name=None):
+    def __init__(
+        self,
+        fail_max=5,
+        reset_timeout=60,
+        exclude=None,
+        listeners=None,
+        state_storage=None,
+        name=None
+    ):
         """
         Creates a new circuit breaker with the given parameters.
         """
         self._lock = threading.RLock()
-        self._state_storage = state_storage or CircuitMemoryStorage(STATE_CLOSED)
+        self._state_storage = state_storage or CircuitMemoryStorage(
+            STATE_CLOSED
+        )
         self._state = self._create_new_state(self.current_state)
 
         self._fail_max = fail_max
@@ -144,7 +149,8 @@ class CircuitBreaker(object):
         """
         with self._lock:
             self._state = self._create_new_state(
-                state_str, prev_state=self._state, notify=True)
+                state_str, prev_state=self._state, notify=True
+            )
 
     @property
     def current_state(self):
@@ -213,19 +219,13 @@ class CircuitBreaker(object):
         with self._lock:
             return self.state.call(func, *args, **kwargs)
 
-    def call_async(self, func, *args, **kwargs):
+    async def call_async(self, func, *args, **kwargs):
         """
-        Calls async `func` with the given `args` and `kwargs` according to the rules
-        implemented by the current state of this circuit breaker.
-
-        Return a closure to prevent import errors when using without tornado present
+        Calls async `func` with the given `args` and `kwargs` according to the
+        rules implemented by the current state of this circuit breaker.
         """
-        @gen.coroutine
-        def wrapped():
-            with self._lock:
-                ret = yield self.state.call_async(func, *args, **kwargs)
-                raise gen.Return(ret)
-        return wrapped()
+        with self._lock:
+            return await self.state.call_async(func, *args, **kwargs)
 
     def open(self):
         """
@@ -256,21 +256,14 @@ class CircuitBreaker(object):
         """
         Returns a wrapper that calls the function `func` according to the rules
         implemented by the current state of this circuit breaker.
-
-        Optionally takes the keyword argument `__pybreaker_call_coroutine`,
-        which will will call `func` as a Tornado co-routine.
         """
-        call_async = call_kwargs.pop('__pybreaker_call_async', False)
-
-        if call_async and not HAS_TORNADO_SUPPORT:
-            raise ImportError('No module named tornado')
-
         def _outer_wrapper(func):
             @wraps(func)
             def _inner_wrapper(*args, **kwargs):
-                if call_async:
+                if asyncio.iscoroutinefunction(func):
                     return self.call_async(func, *args, **kwargs)
                 return self.call(func, *args, **kwargs)
+
             return _inner_wrapper
 
         if call_args:
@@ -326,7 +319,6 @@ class CircuitBreakerStorage(object):
     implementation should be in a subclass that overrides the method this
     class defines.
     """
-
     def __init__(self, name):
         """
         Creates a new instance identified by `name`.
@@ -369,7 +361,8 @@ class CircuitBreakerStorage(object):
     @property
     def counter(self):
         """
-        Override this method to retrieve the current value of the failure counter.
+        Override this method to retrieve the current value of the failure
+        counter.
         """
         pass
 
@@ -394,7 +387,6 @@ class CircuitMemoryStorage(CircuitBreakerStorage):
     """
     Implements a `CircuitBreakerStorage` in local memory.
     """
-
     def __init__(self, state):
         """
         Creates a new instance with the given `state`.
@@ -462,7 +454,13 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 
     logger = logging.getLogger(__name__)
 
-    def __init__(self, state, redis_object, namespace=None, fallback_circuit_state=STATE_CLOSED):
+    def __init__(
+        self,
+        state,
+        redis_object,
+        namespace=None,
+        fallback_circuit_state=STATE_CLOSED
+    ):
         """
         Creates a new instance with the given `state` and `redis` object. The
         redis object should be similar to pyredis' StrictRedis class. If there
@@ -472,7 +470,10 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 
         # Module does not exist, so this feature is not available
         if not HAS_REDIS_SUPPORT:
-            raise ImportError("CircuitRedisStorage can only be used if the required dependencies exist")
+            raise ImportError(
+                "CircuitRedisStorage can only be used if the required "
+                "dependencies exist"
+            )
 
         super(CircuitRedisStorage, self).__init__('redis')
 
@@ -480,7 +481,9 @@ class CircuitRedisStorage(CircuitBreakerStorage):
             self.RedisError = __import__('redis').exceptions.RedisError
         except ImportError:
             # Module does not exist, so this feature is not available
-            raise ImportError("CircuitRedisStorage can only be used if 'redis' is available")
+            raise ImportError(
+                "CircuitRedisStorage can only be used if 'redis' is available"
+            )
 
         self._redis = redis_object
         self._namespace_name = namespace
@@ -504,7 +507,10 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         try:
             state_bytes = self._redis.get(self._namespace('state'))
         except self.RedisError:
-            self.logger.error('RedisError: falling back to default circuit state', exc_info=True)
+            self.logger.error(
+                'RedisError: falling back to default circuit state',
+                exc_info=True
+            )
             return self._fallback_circuit_state
 
         state = self._fallback_circuit_state
@@ -587,6 +593,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         """
         try:
             key = self._namespace('opened_at')
+
             def set_if_greater(pipe):
                 current_value = pipe.get(key)
                 next_value = int(calendar.timegm(now.timetuple()))
@@ -612,7 +619,6 @@ class CircuitBreakerListener(object):
     Listener class used to plug code to a ``CircuitBreaker`` instance when
     certain events happen.
     """
-
     def before_call(self, cb, func, *args, **kwargs):
         """
         This callback function is called before the circuit breaker `cb` calls
@@ -646,7 +652,6 @@ class CircuitBreakerState(object):
     """
     Implements the behavior needed by all circuit breaker states.
     """
-
     def __init__(self, cb, name):
         """
         Creates a new instance associated with the circuit breaker `cb` and
@@ -694,6 +699,7 @@ class CircuitBreakerState(object):
         ret = None
 
         self.before_call(func, *args, **kwargs)
+
         for listener in self._breaker.listeners:
             listener.before_call(self._breaker, func, *args, **kwargs)
 
@@ -701,39 +707,33 @@ class CircuitBreakerState(object):
             ret = func(*args, **kwargs)
             if isinstance(ret, types.GeneratorType):
                 return self.generator_call(ret)
-
         except BaseException as e:
             self._handle_error(e)
         else:
             self._handle_success()
         return ret
 
-    def call_async(self, func, *args, **kwargs):
+    async def call_async(self, func, *args, **kwargs):
         """
         Calls async `func` with the given `args` and `kwargs`, and updates the
         circuit breaker state according to the result.
-
-        Return a closure to prevent import errors when using without tornado present
         """
-        @gen.coroutine
-        def wrapped():
-            ret = None
+        ret = None
 
-            self.before_call(func, *args, **kwargs)
-            for listener in self._breaker.listeners:
-                listener.before_call(self._breaker, func, *args, **kwargs)
+        self.before_call(func, *args, **kwargs)
 
-            try:
-                ret = yield func(*args, **kwargs)
-                if isinstance(ret, types.GeneratorType):
-                    raise gen.Return(self.generator_call(ret))
+        for listener in self._breaker.listeners:
+            listener.before_call(self._breaker, func, *args, **kwargs)
 
-            except BaseException as e:
-                self._handle_error(e)
-            else:
-                self._handle_success()
-            raise gen.Return(ret)
-        return wrapped()
+        try:
+            ret = await func(*args, **kwargs)
+            if isinstance(ret, types.GeneratorType):
+                raise self.generator_call(ret)
+        except BaseException as e:
+            self._handle_error(e)
+        else:
+            self._handle_success()
+        return ret
 
     def generator_call(self, wrapped_generator):
         try:
@@ -778,18 +778,17 @@ class CircuitClosedState(CircuitBreakerState):
     Once the number of failures exceeds a threshold, the circuit breaker trips
     and "opens" the circuit.
     """
-
     def __init__(self, cb, prev_state=None, notify=False):
         """
         Moves the given circuit breaker `cb` to the "closed" state.
         """
         super(CircuitClosedState, self).__init__(cb, STATE_CLOSED)
         if notify:
-            # We only reset the counter if notify is True, otherwise the CircuitBreaker
-            # will lose it's failure count due to a second CircuitBreaker being created
-            # using the same _state_storage object, or if the _state_storage objects
-            # share a central source of truth (as would be the case with the redis
-            # storage).
+            """We only reset the counter if notify is True, otherwise the
+            CircuitBreaker will lose it's failure count due to a second
+            CircuitBreaker being created using the same _state_storage object,
+            or if the _state_storage objects share a central source of truth.
+            """
             self._breaker._state_storage.reset_counter()
             for listener in self._breaker.listeners:
                 listener.state_change(self._breaker, prev_state, self)
@@ -801,9 +800,9 @@ class CircuitClosedState(CircuitBreakerState):
         """
         if self._breaker._state_storage.counter >= self._breaker.fail_max:
             self._breaker.open()
-
-            error_msg = 'Failures threshold reached, circuit breaker opened'
-            six.reraise(CircuitBreakerError, CircuitBreakerError(error_msg), sys.exc_info()[2])
+            raise CircuitBreakerError(
+                'Failures threshold reached, circuit breaker opened'
+            )
 
 
 class CircuitOpenState(CircuitBreakerState):
@@ -815,7 +814,6 @@ class CircuitOpenState(CircuitBreakerState):
     After a suitable amount of time, the circuit breaker decides that the
     operation has a chance of succeeding, so it goes into the "half-open" state.
     """
-
     def __init__(self, cb, prev_state=None, notify=False):
         """
         Moves the given circuit breaker `cb` to the "open" state.
@@ -834,19 +832,36 @@ class CircuitOpenState(CircuitBreakerState):
         timeout = timedelta(seconds=self._breaker.reset_timeout)
         opened_at = self._breaker._state_storage.opened_at
         if opened_at and datetime.utcnow() < opened_at + timeout:
-            error_msg = 'Timeout not elapsed yet, circuit breaker still open'
-            raise CircuitBreakerError(error_msg)
+            raise CircuitBreakerError(
+                'Timeout not elapsed yet, circuit breaker still open'
+            )
         else:
             self._breaker.half_open()
-            return self._breaker.call(func, *args, **kwargs)
+            raise InvokeTrialCall
 
     def call(self, func, *args, **kwargs):
         """
-        Delegate the call to before_call, if the time out is not elapsed it will throw an exception, otherwise we get
-        the results from the call performed after the state is switch to half-open
+        Delegate the call to before_call, if the time out is not elapsed it
+        will throw an exception, otherwise we get the results from the call
+        performed after the state is switch to half-open.
         """
 
-        return self.before_call(func, *args, **kwargs)
+        try:
+            return self.before_call(func, *args, **kwargs)
+        except InvokeTrialCall:
+            return self._breaker.call(func, *args, **kwargs)
+
+    async def call_async(self, func, *args, **kwargs):
+        """
+        Delegate the call to before_call, if the time out is not elapsed it will
+        throw an exception, otherwise we get the results from the call performed
+        after the state is switch to half-open.
+        """
+
+        try:
+            return self.before_call(func, *args, **kwargs)
+        except InvokeTrialCall:
+            return await self._breaker.call_async(func, *args, **kwargs)
 
 
 class CircuitHalfOpenState(CircuitBreakerState):
@@ -857,7 +872,6 @@ class CircuitHalfOpenState(CircuitBreakerState):
     however, the circuit breaker returns to the "open" state until another
     timeout elapses.
     """
-
     def __init__(self, cb, prev_state=None, notify=False):
         """
         Moves the given circuit breaker `cb` to the "half-open" state.
@@ -872,8 +886,7 @@ class CircuitHalfOpenState(CircuitBreakerState):
         Opens the circuit breaker.
         """
         self._breaker.open()
-        error_msg = 'Trial call failed, circuit breaker opened'
-        six.reraise(CircuitBreakerError, CircuitBreakerError(error_msg), sys.exc_info()[2])
+        raise CircuitBreakerError('Trial call failed, circuit breaker opened')
 
     def on_success(self):
         """
@@ -887,4 +900,8 @@ class CircuitBreakerError(Exception):
     When calls to a service fails because the circuit is open, this error is
     raised to allow the caller to handle this type of exception differently.
     """
+    pass
+
+
+class InvokeTrialCall(Exception):
     pass
