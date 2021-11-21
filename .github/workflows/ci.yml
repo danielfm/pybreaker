@@ -17,7 +17,7 @@ jobs:
     container: python:3.10
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
