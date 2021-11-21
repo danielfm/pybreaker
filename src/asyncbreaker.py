@@ -450,7 +450,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
     Implements a `CircuitBreakerStorage` using redis.
     """
 
-    BASE_NAMESPACE = 'pybreaker'
+    BASE_NAMESPACE = 'asyncbreaker'
 
     logger = logging.getLogger(__name__)
 

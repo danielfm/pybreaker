@@ -13,8 +13,5 @@ dist/
 .ropeproject/
 *.iml
 
-# Visual Studio Code
-/.vscode/
-
 # VirtualEnv
 /venv/

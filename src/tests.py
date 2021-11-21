@@ -10,7 +10,7 @@ import fakeredis
 import mock
 from redis.exceptions import RedisError
 
-from pybreaker import (
+from asyncbreaker import (
     STATE_CLOSED, STATE_HALF_OPEN, STATE_OPEN, CircuitBreaker,
     CircuitBreakerError, CircuitBreakerListener, CircuitMemoryStorage,
     CircuitRedisStorage
@@ -640,7 +640,7 @@ class CircuitBreakerTestCase(unittest.TestCase,
         with self.assertRaises(ValueError):
             self.breaker._create_new_state('foo')
 
-    @mock.patch('pybreaker.CircuitOpenState')
+    @mock.patch('asyncbreaker.CircuitOpenState')
     def test_notify_not_called_on_init(self, open_state):
         storage = CircuitMemoryStorage('open')
         breaker = CircuitBreaker(state_storage=storage)
@@ -648,7 +648,7 @@ class CircuitBreakerTestCase(unittest.TestCase,
             breaker, prev_state=None, notify=False
         )
 
-    @mock.patch('pybreaker.CircuitOpenState')
+    @mock.patch('asyncbreaker.CircuitOpenState')
     def test_notify_called_on_state_change(self, open_state):
         storage = CircuitMemoryStorage('closed')
         breaker = CircuitBreaker(state_storage=storage)
@@ -712,7 +712,7 @@ class CircuitBreakerRedisTestCase(unittest.TestCase,
         self.assertTrue(keys[1].decode('utf-8').startswith('my_app'))
 
     def test_fallback_state(self):
-        logger = logging.getLogger('pybreaker')
+        logger = logging.getLogger('asyncbreaker')
         logger.setLevel(logging.FATAL)
         self.breaker_kwargs = {
             'state_storage': CircuitRedisStorage(

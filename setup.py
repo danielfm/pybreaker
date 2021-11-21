@@ -1,13 +1,12 @@
 #!/usr/bin/env python
-#-*- coding:utf-8 -*-
 
 from setuptools import setup
 
 setup(
-    name='pybreaker',
-    version='0.6.0',
+    name='asyncbreaker',
+    version='0.1.0',
     description='Python implementation of the Circuit Breaker pattern',
-    long_description=open('README.rst', 'r').read(),
+    long_description=open('README.md', 'r').read(),
     keywords=['design', 'pattern', 'circuit', 'breaker', 'integration'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -21,11 +20,10 @@ setup(
         'Any',
     ],
     license='BSD',
-    author='Daniel Fernandes Martins',
-    author_email='daniel.tritone@gmail.com',
-    url='http://github.com/danielfm/pybreaker',
+    author='Mason Data, Daniel Fernandes Martins',
+    url='http://github.com/tiwilliam/asyncbreaker',
     package_dir={'': 'src'},
-    py_modules=['pybreaker'],
+    py_modules=['asyncbreaker'],
     include_package_data=True,
     zip_safe=False,
 )
