@@ -50,10 +50,42 @@ class CircuitBreakerStorageBasedTestCase(object):
         self.assertEqual(0, self.breaker.fail_counter)
         self.assertEqual('closed', self.breaker.current_state)
 
-    def test_several_failed_calls(self):
+    def test_several_failed_calls_setting_absent(self):
         """CircuitBreaker: it should open the circuit after many failures.
         """
         self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs)
+        def func(): raise NotImplementedError()
+
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+
+        # Circuit should open
+        self.assertRaises(CircuitBreakerError, self.breaker.call, func)
+        self.assertEqual(3, self.breaker.fail_counter)
+        self.assertEqual('open', self.breaker.current_state)
+
+    def test_throw_new_error_on_trip_false(self):
+        """CircuitBreaker: it should throw the original exception"""
+        self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs, throw_new_error_on_trip=False)
+        def func(): raise NotImplementedError()
+
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+        self.assertRaises(NotImplementedError, self.breaker.call, func)
+
+        # Circuit should be open
+        self.assertEqual(3, self.breaker.fail_counter)
+        self.assertEqual('open', self.breaker.current_state)
+
+        # Circuit should still be open and break 
+        self.assertRaises(CircuitBreakerError, self.breaker.call, func)
+        self.assertEqual(3, self.breaker.fail_counter)
+        self.assertEqual('open', self.breaker.current_state)
+
+
+    def test_throw_new_error_on_trip_true(self):
+        """CircuitBreaker: it should throw a CircuitBreakerError exception"""
+        self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs, throw_new_error_on_trip=True)
         def func(): raise NotImplementedError()
 
         self.assertRaises(NotImplementedError, self.breaker.call, func)

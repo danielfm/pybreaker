@@ -52,7 +52,7 @@ class CircuitBreaker(object):
     """
 
     def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
-                 listeners=None, state_storage=None, name=None):
+                 listeners=None, state_storage=None, name=None, throw_new_error_on_trip=True):
         """
         Creates a new circuit breaker with the given parameters.
         """
@@ -66,6 +66,8 @@ class CircuitBreaker(object):
         self._excluded_exceptions = list(exclude or [])
         self._listeners = list(listeners or [])
         self._name = name
+
+        self._throw_new_error_on_trip = throw_new_error_on_trip
 
     @property
     def fail_counter(self):
@@ -235,6 +237,8 @@ class CircuitBreaker(object):
         with self._lock:
             self._state_storage.opened_at = datetime.utcnow()
             self.state = self._state_storage.state = STATE_OPEN
+
+            return self._throw_new_error_on_trip
 
     def half_open(self):
         """
@@ -800,10 +804,13 @@ class CircuitClosedState(CircuitBreakerState):
         threshold is reached.
         """
         if self._breaker._state_storage.counter >= self._breaker.fail_max:
-            self._breaker.open()
+            throw_new_error = self._breaker.open()
 
-            error_msg = 'Failures threshold reached, circuit breaker opened'
-            six.reraise(CircuitBreakerError, CircuitBreakerError(error_msg), sys.exc_info()[2])
+            if throw_new_error:
+                error_msg = 'Failures threshold reached, circuit breaker opened'
+                six.reraise(CircuitBreakerError, CircuitBreakerError(error_msg), sys.exc_info()[2])
+            else:
+                raise exc
 
 
 class CircuitOpenState(CircuitBreakerState):
@@ -871,9 +878,13 @@ class CircuitHalfOpenState(CircuitBreakerState):
         """
         Opens the circuit breaker.
         """
-        self._breaker.open()
-        error_msg = 'Trial call failed, circuit breaker opened'
-        six.reraise(CircuitBreakerError, CircuitBreakerError(error_msg), sys.exc_info()[2])
+        throw_new_error = self._breaker.open()
+
+        if throw_new_error:
+            error_msg = 'Trial call failed, circuit breaker opened'
+            six.reraise(CircuitBreakerError, CircuitBreakerError(error_msg), sys.exc_info()[2])
+        else:
+            raise exc
 
     def on_success(self):
         """
