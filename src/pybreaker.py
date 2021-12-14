@@ -52,7 +52,7 @@ class CircuitBreaker(object):
     """
 
     def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
-                 listeners=None, state_storage=None, name=None, settings=None):
+                 listeners=None, state_storage=None, name=None, throw_new_error_on_trip=True):
         """
         Creates a new circuit breaker with the given parameters.
         """
@@ -67,7 +67,7 @@ class CircuitBreaker(object):
         self._listeners = list(listeners or [])
         self._name = name
 
-        self._settings = settings or {}
+        self._throw_new_error_on_trip = throw_new_error_on_trip
 
     @property
     def fail_counter(self):
@@ -238,7 +238,7 @@ class CircuitBreaker(object):
             self._state_storage.opened_at = datetime.utcnow()
             self.state = self._state_storage.state = STATE_OPEN
 
-            return self._settings.get("THROW_NEW_ERROR_ON_TRIP", True)
+            return self._throw_new_error_on_trip
 
     def half_open(self):
         """

@@ -64,9 +64,9 @@ class CircuitBreakerStorageBasedTestCase(object):
         self.assertEqual(3, self.breaker.fail_counter)
         self.assertEqual('open', self.breaker.current_state)
 
-    def test_throw_new_error_on_trip_setting_false(self):
+    def test_throw_new_error_on_trip_false(self):
         """CircuitBreaker: it should throw the original exception"""
-        self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs, settings={"THROW_NEW_ERROR_ON_TRIP": False})
+        self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs, throw_new_error_on_trip=False)
         def func(): raise NotImplementedError()
 
         self.assertRaises(NotImplementedError, self.breaker.call, func)
@@ -83,9 +83,9 @@ class CircuitBreakerStorageBasedTestCase(object):
         self.assertEqual('open', self.breaker.current_state)
 
 
-    def test_throw_new_error_on_trip_setting_true(self):
+    def test_throw_new_error_on_trip_true(self):
         """CircuitBreaker: it should throw a CircuitBreakerError exception"""
-        self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs, settings={"THROW_NEW_ERROR_ON_TRIP": True})
+        self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs, throw_new_error_on_trip=True)
         def func(): raise NotImplementedError()
 
         self.assertRaises(NotImplementedError, self.breaker.call, func)
