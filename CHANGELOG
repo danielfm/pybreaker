@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.7.0 (December 14, 2021)
+
+* Option for throwing original error on circuit trip (Thanks @Cruuncher)
+
 Version 0.6.0 (October 22, 2019)
 
 * Use generator.throw to fix generator error raising (Thanks @phillbaker)
