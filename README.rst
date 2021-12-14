@@ -178,14 +178,20 @@ automatically open the circuit after 5 consecutive failures in
 
 When the circuit is open, all calls to ``update_customer`` will fail immediately
 (raising ``CircuitBreakerError``) without any attempt to execute the real
-operation.
+operation. If you want the original error to be thrown when the circuit trips,
+set the ``throw_new_error_on_trip`` option to ``False``::
+
+    pybreaker.CircuitBreaker(..., throw_new_error_on_trip=False)
+
 
 After 60 seconds, the circuit breaker will allow the next call to
 ``update_customer`` pass through. If that call succeeds, the circuit is closed;
 if it fails, however, the circuit is opened again until another timeout elapses.
 
+By default, when the circuit breaker trips, it w
+
 Optional Tornado Support
-```````````````````````````````
+````````````````````````
 A circuit breaker can (optionally) be used to call asynchronous Tornado functions::
 
     from tornado import gen
