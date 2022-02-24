@@ -726,6 +726,20 @@ class CircuitBreakerRedisTestCase(unittest.TestCase, CircuitBreakerStorageBasedT
             self.assertEqual('open', state.name)
             self.assertEqual(0, self.breaker.fail_counter)
 
+    def test_cluster_mode(self):
+        self.redis.flushall()
+        
+        for state in (STATE_OPEN, STATE_CLOSED, STATE_HALF_OPEN):
+            storage = CircuitRedisStorage(state, self.redis, namespace='my_app', cluster_mode=True)
+            breaker_kwargs = {'state_storage': storage}
+            
+            now = datetime.now()
+            storage.opened_at = now
+
+            breaker = CircuitBreaker(**breaker_kwargs)
+            self.assertEqual(breaker.state.name, state)
+            self.assertEqual(storage.opened_at, now)
+
 
 
 import threading
