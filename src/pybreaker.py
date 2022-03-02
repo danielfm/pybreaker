@@ -466,7 +466,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 
     logger = logging.getLogger(__name__)
 
-    def __init__(self, state, redis_object, namespace=None, fallback_circuit_state=STATE_CLOSED):
+    def __init__(self, state, redis_object, namespace=None, fallback_circuit_state=STATE_CLOSED, cluster_mode=False):
         """
         Creates a new instance with the given `state` and `redis` object. The
         redis object should be similar to pyredis' StrictRedis class. If there
@@ -490,6 +490,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         self._namespace_name = namespace
         self._fallback_circuit_state = fallback_circuit_state
         self._initial_state = str(state)
+        self._cluster_mode = cluster_mode
 
         self._initialize_redis_state(self._initial_state)
 
@@ -591,14 +592,26 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         """
         try:
             key = self._namespace('opened_at')
-            def set_if_greater(pipe):
-                current_value = pipe.get(key)
-                next_value = int(calendar.timegm(now.timetuple()))
-                pipe.multi()
-                if not current_value or next_value > int(current_value):
-                    pipe.set(key, next_value)
 
-            self._redis.transaction(set_if_greater, key)
+            if self._cluster_mode:
+
+                current_value = self._redis.get(key)
+                next_value = int(calendar.timegm(now.timetuple()))
+
+                if not current_value or next_value > int(current_value):
+                    self._redis.set(key, next_value)
+
+            else:
+
+                def set_if_greater(pipe):
+                    current_value = pipe.get(key)
+                    next_value = int(calendar.timegm(now.timetuple()))
+                    pipe.multi()
+                    if not current_value or next_value > int(current_value):
+                        pipe.set(key, next_value)
+
+                self._redis.transaction(set_if_greater, key)
+
         except self.RedisError:
             self.logger.error('RedisError', exc_info=True)
             pass
