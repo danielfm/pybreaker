@@ -32,5 +32,5 @@ setup(
     include_package_data=True,
     zip_safe=False,
     test_suite='tests',
-    tests_require=['mock', 'fakeredis==0.16.0', 'redis==2.10.6', 'tornado'],
+    tests_require=['wheel', 'mock', 'fakeredis==0.16.0', 'redis==2.10.6', 'tornado'],
 )
