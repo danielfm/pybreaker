@@ -29,7 +29,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     test_suite='tests',
-    test_requirements=[
+    tests_require=[
         'mock',
         'fakeredis==0.16.0',
         'redis==2.10.6',
