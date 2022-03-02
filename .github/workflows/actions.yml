@@ -12,9 +12,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-
-
-          - python-version: "3.5"
           - python-version: "3.6"
           - python-version: "3.7"
           - python-version: "3.8"
@@ -40,10 +37,6 @@ jobs:
         run: |
           echo "Python ${{ matrix.python-version }}"
           python --version
-
-      - name: Install dependencies
-        run: |
-          python setup.py install
 
       - name: Run tests
         run: |
