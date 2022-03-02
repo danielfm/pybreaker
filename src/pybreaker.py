@@ -15,7 +15,6 @@ import logging
 from datetime import datetime, timedelta
 from functools import wraps
 import threading
-import six
 import sys
 
 try:
@@ -821,7 +820,7 @@ class CircuitClosedState(CircuitBreakerState):
 
             if throw_new_error:
                 error_msg = 'Failures threshold reached, circuit breaker opened'
-                six.reraise(CircuitBreakerError, CircuitBreakerError(error_msg), sys.exc_info()[2])
+                raise CircuitBreakerError(error_msg).with_traceback(sys.exc_info()[2])
             else:
                 raise exc
 
@@ -895,7 +894,7 @@ class CircuitHalfOpenState(CircuitBreakerState):
 
         if throw_new_error:
             error_msg = 'Trial call failed, circuit breaker opened'
-            six.reraise(CircuitBreakerError, CircuitBreakerError(error_msg), sys.exc_info()[2])
+            raise CircuitBreakerError(error_msg).with_traceback(sys.exc_info()[2])
         else:
             raise exc
 

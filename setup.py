@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name='pybreaker',
-    version='0.7.0',
+    version='0.8.0',
     description='Python implementation of the Circuit Breaker pattern',
     long_description=open('README.rst', 'r').read(),
     keywords=['design', 'pattern', 'circuit', 'breaker', 'integration'],
@@ -26,11 +26,13 @@ setup(
     url='http://github.com/danielfm/pybreaker',
     package_dir={'': 'src'},
     py_modules=['pybreaker'],
-    install_requires=[
-        'six',
-    ],
     include_package_data=True,
     zip_safe=False,
     test_suite='tests',
-    tests_require=['mock', 'fakeredis==0.16.0', 'redis==2.10.6', 'tornado'],
+    tests_require=[
+        'mock',
+        'fakeredis==0.16.0',
+        'redis==2.10.6',
+        'tornado'
+    ],
 )

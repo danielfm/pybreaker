@@ -1,6 +1,9 @@
 # Compiled python code
 *.pyc
 
+# tox
+.tox
+
 # Build directories
 build/
 dist/
