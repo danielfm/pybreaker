@@ -4,6 +4,7 @@ Changelog
 Version 0.8.0 (December 14, 2021)
 
 * Add support to redis cluster storage, without ttransaction on opened... (Thanks @felipeagger)
+* Replace Travis by GitHub Actions workflow
 
 Version 0.7.0 (March 3, 2022)
 
