@@ -36,7 +36,7 @@ Installation
 Run the following command line to download the latest stable version of
 PyBreaker from `PyPI`_::
 
-    $ easy_install -U pybreaker
+    $ pip install pybreaker
 
 If you are a `Git`_ user, you might want to download the current development
 version::
