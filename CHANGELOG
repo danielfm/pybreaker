@@ -1,7 +1,11 @@
 Changelog
 =========
 
-Version 0.7.0 (December 14, 2021)
+Version 0.8.0 (December 14, 2021)
+
+* Add support to redis cluster storage, without ttransaction on opened... (Thanks @felipeagger)
+
+Version 0.7.0 (March 3, 2022)
 
 * Option for throwing original error on circuit trip (Thanks @Cruuncher)
 
