@@ -43,9 +43,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ "${{ matrix.python-version }}" = "3.5" ]; then
-            pip install 'tornado==5.*'
-          fi
+          python setup.py install
 
       - name: Run tests
         run: |
