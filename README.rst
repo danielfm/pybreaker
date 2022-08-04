@@ -69,7 +69,9 @@ e.g., live across requests.
   services if there's support at the API level.
 
 If you'd like to use the Redis backing, initialize the ``CircuitBreaker`` with
-a ``CircuitRedisStorage``::
+a ``CircuitRedisStorage``:
+
+.. code:: python
 
     import pybreaker
     import redis
@@ -92,6 +94,8 @@ fail with:
   You may want to reuse a connection already created in your application, if you're
   using ``django_redis`` for example::
 
+.. code:: python
+
     import pybreaker
     from django_redis import get_redis_connection
 
@@ -106,7 +110,9 @@ Event Listening
 
 There's no need to subclass ``CircuitBreaker`` if you just want to take action
 when certain events occur. In that case, it's better to subclass
-``CircuitBreakerListener`` instead::
+``CircuitBreakerListener`` instead:
+
+.. code:: python
 
     class DBListener(pybreaker.CircuitBreakerListener):
         "Listener used by circuit breakers that execute database operations."
@@ -135,7 +141,9 @@ when certain events occur. In that case, it's better to subclass
             logging.info(msg)
 
 
-To add listeners to a circuit breaker::
+To add listeners to a circuit breaker:
+
+.. code:: python
 
     # At creation time...
     db_breaker = pybreaker.CircuitBreaker(listeners=[DBListener(), LogListener()])
@@ -148,7 +156,9 @@ What Does a Circuit Breaker Do?
 ```````````````````````````````
 
 Let's say you want to use a circuit breaker on a function that updates a row
-in the ``customer`` database table::
+in the ``customer`` database table:
+
+.. code:: python
 
     @db_breaker
     def update_customer(cust):
@@ -159,7 +169,9 @@ in the ``customer`` database table::
     updated_customer = update_customer(my_customer)
 
 
-Or if you don't want to use the decorator syntax::
+Or if you don't want to use the decorator syntax:
+
+.. code:: python
 
     def update_customer(cust):
         # Do stuff here...
@@ -176,7 +188,9 @@ automatically open the circuit after 5 consecutive failures in
 When the circuit is open, all calls to ``update_customer`` will fail immediately
 (raising ``CircuitBreakerError``) without any attempt to execute the real
 operation. If you want the original error to be thrown when the circuit trips,
-set the ``throw_new_error_on_trip`` option to ``False``::
+set the ``throw_new_error_on_trip`` option to ``False``:
+
+.. code:: python
 
     pybreaker.CircuitBreaker(..., throw_new_error_on_trip=False)
 
@@ -189,7 +203,9 @@ By default, when the circuit breaker trips, it w
 
 Optional Tornado Support
 ````````````````````````
-A circuit breaker can (optionally) be used to call asynchronous Tornado functions::
+A circuit breaker can (optionally) be used to call asynchronous Tornado functions:
+
+.. code:: python
 
     from tornado import gen
 
@@ -199,7 +215,9 @@ A circuit breaker can (optionally) be used to call asynchronous Tornado function
         # Do async stuff here...
         pass
 
-Or if you don't want to use the decorator syntax::
+Or if you don't want to use the decorator syntax:
+
+.. code:: python
 
     @gen.coroutine
     def async_update(cust):
@@ -215,7 +233,9 @@ Excluding Exceptions
 By default, a failed call is any call that raises an exception. However, it's
 common to raise exceptions to also indicate business exceptions, and those
 exceptions should be ignored by the circuit breaker as they don't indicate
-system errors::
+system errors:
+
+.. code:: python
 
     # At creation time...
     db_breaker = CircuitBreaker(exclude=[CustomerValidationError])
@@ -230,7 +250,9 @@ In that case, when any function guarded by that circuit breaker raises
 
 So as to cover cases where the exception class alone is not enough to determine
 whether it represents a system error, you may also pass a callable rather than
-a type::
+a type:
+
+.. code:: python
 
     db_breaker = CircuitBreaker(exclude=[lambda e: type(e) == HTTPError and e.status_code < 500])
 
@@ -241,13 +263,15 @@ Monitoring and Management
 `````````````````````````
 
 A circuit breaker provides properties and functions you can use to monitor and
-change its current state::
+change its current state:
+
+.. code:: python
 
     # Get the current number of consecutive failures
-    print db_breaker.fail_counter
+    print(db_breaker.fail_counter)
 
     # Get/set the maximum number of consecutive failures
-    print db_breaker.fail_max
+    print(db_breaker.fail_max)
     db_breaker.fail_max = 10
 
     # Get/set the current reset timeout period (in seconds)
@@ -255,7 +279,7 @@ change its current state::
     db_breaker.reset_timeout = 60
 
     # Get the current state, i.e., 'open', 'half-open', 'closed'
-    print db_breaker.current_state
+    print(db_breaker.current_state)
 
     # Closes the circuit
     db_breaker.close()
