@@ -92,7 +92,7 @@ fail with:
 .. note::
 
   You may want to reuse a connection already created in your application, if you're
-  using ``django_redis`` for example::
+  using ``django_redis`` for example:
 
 .. code:: python
 
