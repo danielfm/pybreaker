@@ -479,12 +479,6 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 
         super(CircuitRedisStorage, self).__init__('redis')
 
-        try:
-            self.RedisError = __import__('redis').exceptions.RedisError
-        except ImportError:
-            # Module does not exist, so this feature is not available
-            raise ImportError("CircuitRedisStorage can only be used if 'redis' is available")
-
         self._redis = redis_object
         self._namespace_name = namespace
         self._fallback_circuit_state = fallback_circuit_state
@@ -507,7 +501,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         """
         try:
             state_bytes = self._redis.get(self._namespace('state'))
-        except self.RedisError:
+        except RedisError:
             self.logger.error('RedisError: falling back to default circuit state', exc_info=True)
             return self._fallback_circuit_state
 
@@ -528,7 +522,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         """
         try:
             self._redis.set(self._namespace('state'), str(state))
-        except self.RedisError:
+        except RedisError:
             self.logger.error('RedisError', exc_info=True)
             pass
 
@@ -538,7 +532,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         """
         try:
             self._redis.incr(self._namespace('fail_counter'))
-        except self.RedisError:
+        except RedisError:
             self.logger.error('RedisError', exc_info=True)
             pass
 
@@ -548,7 +542,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         """
         try:
             self._redis.set(self._namespace('fail_counter'), 0)
-        except self.RedisError:
+        except RedisError:
             self.logger.error('RedisError', exc_info=True)
             pass
 
@@ -563,7 +557,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
                 return int(value)
             else:
                 return 0
-        except self.RedisError:
+        except RedisError:
             self.logger.error('RedisError: Assuming no errors', exc_info=True)
             return 0
 
@@ -577,7 +571,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
             timestamp = self._redis.get(self._namespace('opened_at'))
             if timestamp:
                 return datetime(*time.gmtime(int(timestamp))[:6])
-        except self.RedisError:
+        except RedisError:
             self.logger.error('RedisError', exc_info=True)
             return None
 
@@ -611,7 +605,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 
                 self._redis.transaction(set_if_greater, key)
 
-        except self.RedisError:
+        except RedisError:
             self.logger.error('RedisError', exc_info=True)
             pass
 
