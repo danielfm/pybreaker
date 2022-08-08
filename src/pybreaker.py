@@ -1,5 +1,3 @@
-# -*- coding:utf-8 -*-
-
 """
 Threadsafe pure-Python implementation of the Circuit Breaker pattern, described
 by Michael T. Nygard in his book 'Release It!'.

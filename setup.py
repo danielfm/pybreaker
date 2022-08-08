@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
 from setuptools import setup
 
 setup(
@@ -26,7 +23,12 @@ setup(
     py_modules=["pybreaker"],
     include_package_data=True,
     zip_safe=False,
-    python_requires=">=3.6",
-    test_suite="tests",
-    tests_require=["mock", "fakeredis==0.16.0", "redis==2.10.6", "tornado"],
+    python_requires=">=3.7",
+    test_suite='tests',
+    tests_require=[
+        'mock',
+        'fakeredis==0.16.0',
+        'redis==2.10.6',
+        'tornado'
+    ],
 )

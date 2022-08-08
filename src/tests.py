@@ -1,5 +1,3 @@
-# -*- coding:utf-8 -*-
-
 import unittest
 from contextlib import contextmanager
 from datetime import datetime
