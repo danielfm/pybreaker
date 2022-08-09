@@ -1,5 +1,3 @@
-#-*- coding:utf-8 -*-
-
 """
 Threadsafe pure-Python implementation of the Circuit Breaker pattern, described
 by Michael T. Nygard in his book 'Release It!'.
@@ -8,35 +6,43 @@ For more information on this and other patterns and best practices, buy the
 book at https://pragprog.com/titles/mnee2/release-it-second-edition/
 """
 
-import types
-import time
 import calendar
 import logging
+import sys
+import threading
+import time
+import types
 from datetime import datetime, timedelta
 from functools import wraps
-import threading
-import sys
 
 try:
     from tornado import gen
+
     HAS_TORNADO_SUPPORT = True
 except ImportError:
     HAS_TORNADO_SUPPORT = False
 
 try:
     from redis.exceptions import RedisError
+
     HAS_REDIS_SUPPORT = True
 except ImportError:
     HAS_REDIS_SUPPORT = False
 
 __all__ = (
-    'CircuitBreaker', 'CircuitBreakerListener', 'CircuitBreakerError',
-    'CircuitMemoryStorage', 'CircuitRedisStorage', 'STATE_OPEN', 'STATE_CLOSED',
-    'STATE_HALF_OPEN',)
+    "CircuitBreaker",
+    "CircuitBreakerListener",
+    "CircuitBreakerError",
+    "CircuitMemoryStorage",
+    "CircuitRedisStorage",
+    "STATE_OPEN",
+    "STATE_CLOSED",
+    "STATE_HALF_OPEN",
+)
 
-STATE_OPEN = 'open'
-STATE_CLOSED = 'closed'
-STATE_HALF_OPEN = 'half-open'
+STATE_OPEN = "open"
+STATE_CLOSED = "closed"
+STATE_HALF_OPEN = "half-open"
 
 
 class CircuitBreaker(object):
@@ -50,8 +56,16 @@ class CircuitBreaker(object):
     This pattern is described by Michael T. Nygard in his book 'Release It!'.
     """
 
-    def __init__(self, fail_max=5, reset_timeout=60, exclude=None,
-                 listeners=None, state_storage=None, name=None, throw_new_error_on_trip=True):
+    def __init__(
+        self,
+        fail_max=5,
+        reset_timeout=60,
+        exclude=None,
+        listeners=None,
+        state_storage=None,
+        name=None,
+        throw_new_error_on_trip=True,
+    ):
         """
         Creates a new circuit breaker with the given parameters.
         """
@@ -122,7 +136,7 @@ class CircuitBreaker(object):
             return cls(self, prev_state=prev_state, notify=notify)
         except KeyError:
             msg = "Unknown state {!r}, valid states: {}"
-            raise ValueError(msg.format(new_state, ', '.join(state_map)))
+            raise ValueError(msg.format(new_state, ", ".join(state_map)))
 
     @property
     def state(self):
@@ -145,7 +159,8 @@ class CircuitBreaker(object):
         """
         with self._lock:
             self._state = self._create_new_state(
-                state_str, prev_state=self._state, notify=True)
+                state_str, prev_state=self._state, notify=True
+            )
 
     @property
     def current_state(self):
@@ -221,11 +236,13 @@ class CircuitBreaker(object):
 
         Return a closure to prevent import errors when using without tornado present
         """
+
         @gen.coroutine
         def wrapped():
             with self._lock:
                 ret = yield self.state.call_async(func, *args, **kwargs)
                 raise gen.Return(ret)
+
         return wrapped()
 
     def open(self):
@@ -263,10 +280,10 @@ class CircuitBreaker(object):
         Optionally takes the keyword argument `__pybreaker_call_coroutine`,
         which will will call `func` as a Tornado co-routine.
         """
-        call_async = call_kwargs.pop('__pybreaker_call_async', False)
+        call_async = call_kwargs.pop("__pybreaker_call_async", False)
 
         if call_async and not HAS_TORNADO_SUPPORT:
-            raise ImportError('No module named tornado')
+            raise ImportError("No module named tornado")
 
         def _outer_wrapper(func):
             @wraps(func)
@@ -274,6 +291,7 @@ class CircuitBreaker(object):
                 if call_async:
                     return self.call_async(func, *args, **kwargs)
                 return self.call(func, *args, **kwargs)
+
             return _inner_wrapper
 
         if call_args:
@@ -402,7 +420,7 @@ class CircuitMemoryStorage(CircuitBreakerStorage):
         """
         Creates a new instance with the given `state`.
         """
-        super(CircuitMemoryStorage, self).__init__('memory')
+        super(CircuitMemoryStorage, self).__init__("memory")
         self._fail_counter = 0
         self._opened_at = None
         self._state = state
@@ -461,11 +479,18 @@ class CircuitRedisStorage(CircuitBreakerStorage):
     Implements a `CircuitBreakerStorage` using redis.
     """
 
-    BASE_NAMESPACE = 'pybreaker'
+    BASE_NAMESPACE = "pybreaker"
 
     logger = logging.getLogger(__name__)
 
-    def __init__(self, state, redis_object, namespace=None, fallback_circuit_state=STATE_CLOSED, cluster_mode=False):
+    def __init__(
+        self,
+        state,
+        redis_object,
+        namespace=None,
+        fallback_circuit_state=STATE_CLOSED,
+        cluster_mode=False,
+    ):
         """
         Creates a new instance with the given `state` and `redis` object. The
         redis object should be similar to pyredis' StrictRedis class. If there
@@ -475,9 +500,11 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 
         # Module does not exist, so this feature is not available
         if not HAS_REDIS_SUPPORT:
-            raise ImportError("CircuitRedisStorage can only be used if the required dependencies exist")
+            raise ImportError(
+                "CircuitRedisStorage can only be used if the required dependencies exist"
+            )
 
-        super(CircuitRedisStorage, self).__init__('redis')
+        super(CircuitRedisStorage, self).__init__("redis")
 
         self._redis = redis_object
         self._namespace_name = namespace
@@ -488,8 +515,8 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         self._initialize_redis_state(self._initial_state)
 
     def _initialize_redis_state(self, state):
-        self._redis.setnx(self._namespace('fail_counter'), 0)
-        self._redis.setnx(self._namespace('state'), state)
+        self._redis.setnx(self._namespace("fail_counter"), 0)
+        self._redis.setnx(self._namespace("state"), state)
 
     @property
     def state(self):
@@ -500,14 +527,16 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         with the fallback circuit state and reset the fail counter.
         """
         try:
-            state_bytes = self._redis.get(self._namespace('state'))
+            state_bytes = self._redis.get(self._namespace("state"))
         except RedisError:
-            self.logger.error('RedisError: falling back to default circuit state', exc_info=True)
+            self.logger.error(
+                "RedisError: falling back to default circuit state", exc_info=True
+            )
             return self._fallback_circuit_state
 
         state = self._fallback_circuit_state
         if state_bytes is not None:
-            state = state_bytes.decode('utf-8')
+            state = state_bytes.decode("utf-8")
         else:
             # state retrieved from redis was missing, so we re-initialize
             # the circuit breaker state on redis
@@ -521,9 +550,9 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Set the current circuit breaker state to `state`.
         """
         try:
-            self._redis.set(self._namespace('state'), str(state))
+            self._redis.set(self._namespace("state"), str(state))
         except RedisError:
-            self.logger.error('RedisError', exc_info=True)
+            self.logger.error("RedisError", exc_info=True)
             pass
 
     def increment_counter(self):
@@ -531,9 +560,9 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Increases the failure counter by one.
         """
         try:
-            self._redis.incr(self._namespace('fail_counter'))
+            self._redis.incr(self._namespace("fail_counter"))
         except RedisError:
-            self.logger.error('RedisError', exc_info=True)
+            self.logger.error("RedisError", exc_info=True)
             pass
 
     def reset_counter(self):
@@ -541,9 +570,9 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Sets the failure counter to zero.
         """
         try:
-            self._redis.set(self._namespace('fail_counter'), 0)
+            self._redis.set(self._namespace("fail_counter"), 0)
         except RedisError:
-            self.logger.error('RedisError', exc_info=True)
+            self.logger.error("RedisError", exc_info=True)
             pass
 
     @property
@@ -552,13 +581,13 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Returns the current value of the failure counter.
         """
         try:
-            value = self._redis.get(self._namespace('fail_counter'))
+            value = self._redis.get(self._namespace("fail_counter"))
             if value:
                 return int(value)
             else:
                 return 0
         except RedisError:
-            self.logger.error('RedisError: Assuming no errors', exc_info=True)
+            self.logger.error("RedisError: Assuming no errors", exc_info=True)
             return 0
 
     @property
@@ -568,11 +597,11 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         was opened.
         """
         try:
-            timestamp = self._redis.get(self._namespace('opened_at'))
+            timestamp = self._redis.get(self._namespace("opened_at"))
             if timestamp:
                 return datetime(*time.gmtime(int(timestamp))[:6])
         except RedisError:
-            self.logger.error('RedisError', exc_info=True)
+            self.logger.error("RedisError", exc_info=True)
             return None
 
     @opened_at.setter
@@ -584,7 +613,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         datetime should be in UTC.
         """
         try:
-            key = self._namespace('opened_at')
+            key = self._namespace("opened_at")
 
             if self._cluster_mode:
 
@@ -606,7 +635,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
                 self._redis.transaction(set_if_greater, key)
 
         except RedisError:
-            self.logger.error('RedisError', exc_info=True)
+            self.logger.error("RedisError", exc_info=True)
             pass
 
     def _namespace(self, key):
@@ -614,7 +643,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         if self._namespace_name:
             name_parts.insert(0, self._namespace_name)
 
-        return ':'.join(name_parts)
+        return ":".join(name_parts)
 
 
 class CircuitBreakerListener(object):
@@ -725,6 +754,7 @@ class CircuitBreakerState(object):
 
         Return a closure to prevent import errors when using without tornado present
         """
+
         @gen.coroutine
         def wrapped():
             ret = None
@@ -743,6 +773,7 @@ class CircuitBreakerState(object):
             else:
                 self._handle_success()
             raise gen.Return(ret)
+
         return wrapped()
 
     def generator_call(self, wrapped_generator):
@@ -813,7 +844,7 @@ class CircuitClosedState(CircuitBreakerState):
             throw_new_error = self._breaker.open()
 
             if throw_new_error:
-                error_msg = 'Failures threshold reached, circuit breaker opened'
+                error_msg = "Failures threshold reached, circuit breaker opened"
                 raise CircuitBreakerError(error_msg).with_traceback(sys.exc_info()[2])
             else:
                 raise exc
@@ -847,7 +878,7 @@ class CircuitOpenState(CircuitBreakerState):
         timeout = timedelta(seconds=self._breaker.reset_timeout)
         opened_at = self._breaker._state_storage.opened_at
         if opened_at and datetime.utcnow() < opened_at + timeout:
-            error_msg = 'Timeout not elapsed yet, circuit breaker still open'
+            error_msg = "Timeout not elapsed yet, circuit breaker still open"
             raise CircuitBreakerError(error_msg)
         else:
             self._breaker.half_open()
@@ -887,7 +918,7 @@ class CircuitHalfOpenState(CircuitBreakerState):
         throw_new_error = self._breaker.open()
 
         if throw_new_error:
-            error_msg = 'Trial call failed, circuit breaker opened'
+            error_msg = "Trial call failed, circuit breaker opened"
             raise CircuitBreakerError(error_msg).with_traceback(sys.exc_info()[2])
         else:
             raise exc
@@ -904,4 +935,5 @@ class CircuitBreakerError(Exception):
     When calls to a service fails because the circuit is open, this error is
     raised to allow the caller to handle this type of exception differently.
     """
+
     pass
