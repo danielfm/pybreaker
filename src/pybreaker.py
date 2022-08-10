@@ -681,27 +681,27 @@ class CircuitBreakerListener(object):
         pass
 
 
-class CircuitBreakerState(object):
+class CircuitBreakerState:
     """
     Implements the behavior needed by all circuit breaker states.
     """
 
-    def __init__(self, cb, name):
+    def __init__(self, cb: CircuitBreaker, name: str) -> None:
         """
         Creates a new instance associated with the circuit breaker `cb` and
         identified by `name`.
         """
-        self._breaker = cb
-        self._name = name
+        self._breaker: CircuitBreaker = cb
+        self._name: str = name
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         Returns a human friendly name that identifies this state.
         """
         return self._name
 
-    def _handle_error(self, exc, reraise=True):
+    def _handle_error(self, exc: BaseException, reraise: bool = True) -> None:
         """
         Handles a failed call to the guarded operation.
         """
@@ -716,7 +716,7 @@ class CircuitBreakerState(object):
         if reraise:
             raise exc
 
-    def _handle_success(self):
+    def _handle_success(self) -> None:
         """
         Handles a successful call to the guarded operation.
         """
@@ -820,7 +820,7 @@ class CircuitClosedState(CircuitBreakerState):
     and "opens" the circuit.
     """
 
-    def __init__(self, cb, prev_state=None, notify=False):
+    def __init__(self, cb: CircuitBreaker, prev_state=None, notify=False):
         """
         Moves the given circuit breaker `cb` to the "closed" state.
         """
