@@ -713,8 +713,8 @@ class CircuitBreakerState:
         Creates a new instance associated with the circuit breaker `cb` and
         identified by `name`.
         """
-        self._breaker = cb
-        self._name = name
+        self._breaker: CircuitBreaker = cb
+        self._name: str = name
 
     @property
     def name(self) -> str:
