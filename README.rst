@@ -51,7 +51,9 @@ Usage
 -----
 
 The first step is to create an instance of ``CircuitBreaker`` for each
-integration point you want to protect against::
+integration point you want to protect against:
+
+.. code:: python
 
     import pybreaker
 
