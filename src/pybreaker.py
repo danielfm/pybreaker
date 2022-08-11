@@ -512,7 +512,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 
     def __init__(
         self,
-        state: CircuitBreakerState,
+        state: str,
         redis_object: Redis,
         namespace: str | None = None,
         fallback_circuit_state: str = STATE_CLOSED,
