@@ -22,13 +22,9 @@ setup(
     package_dir={"": "src"},
     py_modules=["pybreaker"],
     include_package_data=True,
+    install_requires=["typing_extensions>=3.10.0; python_version < '3.8'"],
     zip_safe=False,
     python_requires=">=3.7",
-    test_suite='tests',
-    tests_require=[
-        'mock',
-        'fakeredis==0.16.0',
-        'redis==2.10.6',
-        'tornado'
-    ],
+    test_suite="tests",
+    tests_require=["mock", "fakeredis==0.16.0", "redis==2.10.6", "tornado"],
 )
