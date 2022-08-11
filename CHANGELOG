@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version 1.0.0 (August 11, 2022)
+
+* Highlight Python code in README (Thanks @Kludex)
+* Add linter & format setup (Thanks @Kludex)
+* Drop Python 3.6 support (Thanks @Kludex)
+* Fully type annotate pybreaker.py (Thanks @Kludex)
+
 Version 0.8.0 (December 14, 2021)
 
 * Add support to redis cluster storage, without ttransaction on opened... (Thanks @felipeagger)
