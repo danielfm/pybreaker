@@ -19,7 +19,6 @@ from functools import wraps
 from typing import (
     Any,
     Callable,
-    Literal,
     NoReturn,
     Sequence,
     Tuple,
@@ -29,6 +28,11 @@ from typing import (
     cast,
     overload,
 )
+
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 try:
     from tornado import gen
