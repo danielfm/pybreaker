@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 1.0.1 (August 12, 2022)
+
+* Fix state parameter type hint (Thanks @Kludex)
+
 Version 1.0.0 (August 11, 2022)
 
 * Highlight Python code in README (Thanks @Kludex)
