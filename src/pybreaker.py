@@ -257,8 +257,7 @@ class CircuitBreaker:
         Calls `func` with the given `args` and `kwargs` according to the rules
         implemented by the current state of this circuit breaker.
         """
-        with self._lock:
-            return self.state.call(func, *args, **kwargs)
+        return self.state.call(func, *args, **kwargs)
 
     def call_async(self, func, *args, **kwargs):  # type: ignore[no-untyped-def]
         """
