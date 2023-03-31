@@ -26,5 +26,5 @@ setup(
     zip_safe=False,
     python_requires=">=3.7",
     test_suite="tests",
-    tests_require=["mock", "fakeredis==0.16.0", "redis==2.10.6", "tornado"],
+    tests_require=["mock", "fakeredis==0.16.0", "redis==4.4.4", "tornado"],
 )
