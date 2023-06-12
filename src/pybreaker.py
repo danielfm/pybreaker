@@ -542,8 +542,8 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         self._initialize_redis_state(self._initial_state)
 
     def _initialize_redis_state(self, state: str) -> None:
-        self._redis.setnx(self._namespace("fail_counter"), 0)
-        self._redis.setnx(self._namespace("state"), state)
+        self._redis.set(self._namespace("fail_counter"), 0, nx=True)
+        self._redis.set(self._namespace("state"), state, nx=True)
 
     @property
     def state(self) -> str:
