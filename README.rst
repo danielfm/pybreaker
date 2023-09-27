@@ -201,8 +201,6 @@ After 60 seconds, the circuit breaker will allow the next call to
 ``update_customer`` pass through. If that call succeeds, the circuit is closed;
 if it fails, however, the circuit is opened again until another timeout elapses.
 
-By default, when the circuit breaker trips, it w
-
 Optional Tornado Support
 ````````````````````````
 A circuit breaker can (optionally) be used to call asynchronous Tornado functions:
