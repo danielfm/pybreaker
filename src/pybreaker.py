@@ -514,6 +514,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         self,
         state: str,
         redis_object: Redis,
+        expire_time: int | None = None,
         namespace: str | None = None,
         fallback_circuit_state: str = STATE_CLOSED,
         cluster_mode: bool = False,
@@ -538,12 +539,13 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         self._fallback_circuit_state = fallback_circuit_state
         self._initial_state = str(state)
         self._cluster_mode = cluster_mode
+        self._ex = expire_time
 
         self._initialize_redis_state(self._initial_state)
 
     def _initialize_redis_state(self, state: str) -> None:
-        self._redis.setnx(self._namespace("fail_counter"), 0)
-        self._redis.setnx(self._namespace("state"), state)
+        self._redis.set(self._namespace("fail_counter"), 0, nx=True, ex=self._ex)
+        self._redis.set(self._namespace("state"), state, nx=True, ex=self._ex)
 
     @property
     def state(self) -> str:
@@ -577,7 +579,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Set the current circuit breaker state to `state`.
         """
         try:
-            self._redis.set(self._namespace("state"), str(state))
+            self._redis.set(self._namespace("state"), str(state), ex=self._ex)
         except RedisError:
             self.logger.error("RedisError", exc_info=True)
 
@@ -595,7 +597,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         Sets the failure counter to zero.
         """
         try:
-            self._redis.set(self._namespace("fail_counter"), 0)
+            self._redis.set(self._namespace("fail_counter"), 0, ex=self._ex)
         except RedisError:
             self.logger.error("RedisError", exc_info=True)
 
@@ -645,7 +647,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
                 next_value = int(calendar.timegm(now.timetuple()))
 
                 if not current_value or next_value > int(current_value):
-                    self._redis.set(key, next_value)
+                    self._redis.set(key, next_value, ex=self._ex)
 
             else:
 
