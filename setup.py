@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="pybreaker",
-    version="1.0.2",
+    version="1.0.3",
     description="Python implementation of the Circuit Breaker pattern",
     long_description=open("README.rst", "r").read(),
     keywords=["design", "pattern", "circuit", "breaker", "integration"],
@@ -19,8 +19,9 @@ setup(
     author="Daniel Fernandes Martins",
     author_email="daniel.tritone@gmail.com",
     url="http://github.com/danielfm/pybreaker",
+    package_data={"pybreaker": ["py.typed"]},
     package_dir={"": "src"},
-    py_modules=["pybreaker"],
+    packages=["pybreaker"],
     include_package_data=True,
     install_requires=["typing_extensions>=3.10.0; python_version < '3.8'"],
     zip_safe=False,
