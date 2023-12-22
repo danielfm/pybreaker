@@ -295,13 +295,6 @@ These properties and functions might and should be exposed to the operations
 staff somehow as they help them to detect problems in the system.
 
 
-Donate
-------
-
-If this project is useful for you, buy me a beer!
-
-Bitcoin: ``bc1qtwyfcj7pssk0krn5wyfaca47caar6nk9yyc4mu``
-
 .. _Python: http://python.org
 .. _Jython: http://jython.org
 .. _Release It!: https://pragprog.com/titles/mnee2/release-it-second-edition/
