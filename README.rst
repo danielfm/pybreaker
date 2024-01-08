@@ -106,6 +106,20 @@ fail with:
         reset_timeout=60,
         state_storage=pybreaker.CircuitRedisStorage(pybreaker.STATE_CLOSED, get_redis_connection('default')))
 
+.. note::
+
+  If you require multiple, independent CircuitBreakers and wish to store their states in Redis, it is essential to assign a ``unique namespace`` for each 
+  CircuitBreaker instance. This can be achieved by specifying a distinct namespace parameter in the CircuitRedisStorage constructor. for example:
+
+.. code:: python
+
+    import pybreaker
+    from django_redis import get_redis_connection
+
+    db_breaker = pybreaker.CircuitBreaker(
+        fail_max=5,
+        reset_timeout=60,
+        state_storage=pybreaker.CircuitRedisStorage(pybreaker.STATE_CLOSED, get_redis_connection('default'),namespace='unique_namespace'))
 
 Event Listening
 ```````````````
