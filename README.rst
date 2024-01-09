@@ -196,6 +196,16 @@ Or if you don't want to use the decorator syntax:
     # Will trigger the circuit breaker
     updated_customer = db_breaker.call(update_customer, my_customer)
 
+Or use it as a context manager and a `with` statement:
+
+.. code:: python
+
+    # Will trigger the circuit breaker
+    with db_breaker.calling():
+        # Do stuff here...
+        pass
+
+
 
 According to the default parameters, the circuit breaker ``db_breaker`` will
 automatically open the circuit after 5 consecutive failures in

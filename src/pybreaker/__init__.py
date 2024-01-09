@@ -8,6 +8,7 @@ book at https://pragprog.com/titles/mnee2/release-it-second-edition/
 from __future__ import annotations
 
 import calendar
+import contextlib
 import logging
 import sys
 import threading
@@ -27,6 +28,7 @@ from typing import (
     Union,
     cast,
     overload,
+    Iterable,
 )
 
 if sys.version_info >= (3, 8):
@@ -259,6 +261,19 @@ class CircuitBreaker:
         """
         with self._lock:
             return self.state.call(func, *args, **kwargs)
+
+    @contextlib.contextmanager
+    def calling(self) -> Iterable[None]:
+        """
+        Returns a context manager, enabling the circuit breaker to be used with a
+        `with` statement. The block of code inside the `with` statement will be
+        executed according to the rules implemented by the current state of this
+        circuit breaker.
+        """
+        def _wrapper() -> None:
+            yield
+
+        yield from self.call(_wrapper)
 
     def call_async(self, func, *args, **kwargs):  # type: ignore[no-untyped-def]
         """

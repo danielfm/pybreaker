@@ -1159,5 +1159,46 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
         self.assertTrue(self.breaker.fail_counter < self.breaker.fail_max + num_threads)
 
 
+class CircuitBreakerContextManagerTestCase(unittest.TestCase):
+    """
+    Tests for the CircuitBreaker class, when used as a context manager.
+    """
+
+    def test_calling(self):
+        """
+        Test that the CircuitBreaker calling() API returns a context manager and works as expected.
+        """
+
+        class TestError(Exception):
+            pass
+
+        breaker = CircuitBreaker(fail_max=2, reset_timeout=0.01)
+        mock_fn = mock.MagicMock()
+
+        def _do_raise():
+            with breaker.calling():
+                raise TestError
+
+        def _do_succeed():
+            with breaker.calling():
+                mock_fn()
+
+        self.assertRaises(TestError, _do_raise)
+        self.assertRaises(CircuitBreakerError, _do_raise)
+        self.assertEqual(2, breaker.fail_counter)
+        self.assertEqual("open", breaker.current_state)
+
+        # Still fails while circuit breaker is open:
+        self.assertRaises(CircuitBreakerError, _do_succeed)
+        mock_fn.assert_not_called()
+
+        sleep(0.01)
+
+        _do_succeed()
+        mock_fn.assert_called_once()
+        self.assertEqual(0, breaker.fail_counter)
+        self.assertEqual("closed", breaker.current_state)
+
+
 if __name__ == "__main__":
     unittest.main()
