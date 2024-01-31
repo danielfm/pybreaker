@@ -5,6 +5,7 @@ by Michael T. Nygard in his book 'Release It!'.
 For more information on this and other patterns and best practices, buy the
 book at https://pragprog.com/titles/mnee2/release-it-second-edition/
 """
+
 from __future__ import annotations
 
 import calendar
@@ -20,6 +21,8 @@ from functools import wraps
 from typing import (
     Any,
     Callable,
+    Generator,
+    Iterable,
     NoReturn,
     Sequence,
     Tuple,
@@ -28,7 +31,6 @@ from typing import (
     Union,
     cast,
     overload,
-    Iterable,
 )
 
 if sys.version_info >= (3, 8):
@@ -88,7 +90,7 @@ class CircuitBreaker:
         self,
         fail_max: int = 5,
         reset_timeout: float = 60,
-        exclude: Sequence[Type[ExceptionType]] | None = None,
+        exclude: Iterable[Type[ExceptionType] | Callable[[Any], bool]] | None = None,
         listeners: Sequence[CBListenerType] | None = None,
         state_storage: "CircuitBreakerStorage" | None = None,
         name: str | None = None,
@@ -204,7 +206,9 @@ class CircuitBreaker:
         return self._state_storage.state
 
     @property
-    def excluded_exceptions(self) -> Tuple[Type[ExceptionType], ...]:
+    def excluded_exceptions(
+        self,
+    ) -> Tuple[Type[ExceptionType] | Callable[[Any], bool], ...]:
         """
         Returns the list of excluded exceptions, e.g., exceptions that should
         not be considered system errors by this circuit breaker.
@@ -263,14 +267,15 @@ class CircuitBreaker:
             return self.state.call(func, *args, **kwargs)
 
     @contextlib.contextmanager
-    def calling(self) -> Iterable[None]:
+    def calling(self) -> Any:
         """
         Returns a context manager, enabling the circuit breaker to be used with a
         `with` statement. The block of code inside the `with` statement will be
         executed according to the rules implemented by the current state of this
         circuit breaker.
         """
-        def _wrapper() -> None:
+
+        def _wrapper() -> Generator:
             yield
 
         yield from self.call(_wrapper)
@@ -745,12 +750,12 @@ class CircuitBreakerState:
     @overload
     def _handle_error(
         self, exc: BaseException, reraise: Literal[True] = ...
-    ) -> NoReturn:
-        ...
+    ) -> NoReturn: ...
 
     @overload
-    def _handle_error(self, exc: BaseException, reraise: Literal[False] = ...) -> None:
-        ...
+    def _handle_error(
+        self, exc: BaseException, reraise: Literal[False] = ...
+    ) -> None: ...
 
     def _handle_error(self, exc: BaseException, reraise: bool = True) -> None:
         """

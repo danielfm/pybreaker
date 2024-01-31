@@ -899,6 +899,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         """CircuitBreaker: it should compute a failed call atomically to
         avoid race conditions.
         """
+
         # Create a specific exception to avoid masking other errors
         class SpecificException(Exception):
             pass
@@ -1045,6 +1046,7 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
         """CircuitBreaker: it should compute a failed call atomically to
         avoid race conditions.
         """
+
         # Create a specific exception to avoid masking other errors
         class SpecificException(Exception):
             pass

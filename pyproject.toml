@@ -1,9 +1,25 @@
+[tool.pyprojectx]
+[tool.pyprojectx.main]
+requirements = ["pre-commit<=3.6", "black", "isort", "mypy", "px-utils"]
+post-install = "pre-commit install"
+
+[tool.pyprojectx.venv]
+dir = "@PROJECT_DIR/venv"
+requirements = ["setuptools", "-e .", "types-mock", "types-redis"]
+
+[tool.pyprojectx.aliases]
+install = "pw@ --install-context venv"
+format = ["@install", "black src", "isort src"]
+lint = ["@install", "mypy --python-executable venv/bin/python --no-incremental"]
+test = { cmd = "python setup.py test", ctx = "venv" }
+clean = "pxrm .eggs venv src/pybreaker.egg-info"
+
 [tool.mypy]
 disallow_untyped_defs = true
 ignore_missing_imports = true
 no_implicit_optional = true
 show_error_codes = true
-files = ["src/pybreaker.py"]
+files = ["src/pybreaker", "src/typechecks.py"]
 
 [tool.isort]
 profile = "black"
