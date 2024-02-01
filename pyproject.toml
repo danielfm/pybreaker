@@ -1,6 +1,6 @@
 [tool.pyprojectx]
 [tool.pyprojectx.main]
-requirements = ["pre-commit<=3.6", "black", "isort", "mypy", "px-utils"]
+requirements = ["pre-commit<=3.6", "ruff", "mypy", "px-utils"]
 post-install = "pre-commit install"
 
 [tool.pyprojectx.venv]
@@ -9,8 +9,9 @@ requirements = ["setuptools", "pytest", "mock", "tornado", "redis", "fakeredis",
 
 [tool.pyprojectx.aliases]
 install = "pw@ --install-context venv"
-format = ["@install", "black src tests", "isort src tests"]
-lint = ["@install", "mypy --python-executable venv/bin/python --no-incremental"]
+format = ["ruff format", "ruff check --select I --fix"]
+lint = ["@install", "ruff check src", "mypy --python-executable venv/bin/python --no-incremental"]
+fix-ruff = "ruff check --fix"
 test = { cmd = "pytest", ctx = "venv" }
 clean = "pxrm .eggs venv src/pybreaker.egg-info"
 
@@ -19,7 +20,12 @@ disallow_untyped_defs = true
 ignore_missing_imports = true
 no_implicit_optional = true
 show_error_codes = true
-files = ["src/pybreaker", "src/typechecks.py"]
+files = ["src", "tests/typechecks.py"]
 
-[tool.isort]
-profile = "black"
+[tool.ruff]
+line-length = 120
+select = ["ALL"]
+fixable = ["ALL"]
+ignore = ["ISC001", "ANN", "FA", "FBT", "D100", "D102", "D205", "D103", "D104", "D105", "D213", "D203", "T201", "TRY003", "EM102", "COM812", "S602", "S603", "S604", "S605", "S607", "S324"]
+[tool.ruff.per-file-ignores]
+"src/*" = ["PLR0913", "TCH002", "D401", "D404", "SLF001", "BLE001", "TRY301", "DTZ001", "DTZ003", "SIM102", "TRY300"]

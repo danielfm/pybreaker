@@ -2,17 +2,15 @@ import unittest
 from contextlib import contextmanager
 from datetime import datetime
 from time import sleep
+from unittest import mock
 
-import mock
 import pytest
+from pybreaker import *
 from tornado import gen, testing
 
-from pybreaker import *
 
-
-class CircuitBreakerStorageBasedTestCase(object):
-    """
-    Mix in to test against different storage backings. Depends on
+class CircuitBreakerStorageBasedTestCase:
+    """Mix in to test against different storage backings. Depends on
     `self.breaker` and `self.breaker_kwargs`.
     """
 
@@ -28,8 +26,8 @@ class CircuitBreakerStorageBasedTestCase(object):
             return True
 
         assert self.breaker.call(func)
-        assert 0 == self.breaker.fail_counter
-        assert "closed" == self.breaker.current_state
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.current_state == "closed"
 
     def test_one_failed_call(self):
         """CircuitBreaker: it should keep the circuit closed after a few
@@ -37,12 +35,12 @@ class CircuitBreakerStorageBasedTestCase(object):
         """
 
         def func():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
-        assert 1 == self.breaker.fail_counter
-        assert "closed" == self.breaker.current_state
+        assert self.breaker.fail_counter == 1
+        assert self.breaker.current_state == "closed"
 
     def test_one_successful_call_after_failed_call(self):
         """CircuitBreaker: it should keep the circuit closed after few mixed
@@ -53,22 +51,22 @@ class CircuitBreakerStorageBasedTestCase(object):
             return True
 
         def err():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(err)
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
 
         assert self.breaker.call(suc)
-        assert 0 == self.breaker.fail_counter
-        assert "closed" == self.breaker.current_state
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.current_state == "closed"
 
     def test_several_failed_calls_setting_absent(self):
         """CircuitBreaker: it should open the circuit after many failures."""
         self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs)
 
         def func():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
@@ -78,17 +76,15 @@ class CircuitBreakerStorageBasedTestCase(object):
         # Circuit should open
         with pytest.raises(CircuitBreakerError):
             self.breaker.call(func)
-        assert 3 == self.breaker.fail_counter
-        assert "open" == self.breaker.current_state
+        assert self.breaker.fail_counter == 3
+        assert self.breaker.current_state == "open"
 
     def test_throw_new_error_on_trip_false(self):
         """CircuitBreaker: it should throw the original exception"""
-        self.breaker = CircuitBreaker(
-            fail_max=3, **self.breaker_kwargs, throw_new_error_on_trip=False
-        )
+        self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs, throw_new_error_on_trip=False)
 
         def func():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
@@ -98,23 +94,21 @@ class CircuitBreakerStorageBasedTestCase(object):
             self.breaker.call(func)
 
         # Circuit should be open
-        assert 3 == self.breaker.fail_counter
-        assert "open" == self.breaker.current_state
+        assert self.breaker.fail_counter == 3
+        assert self.breaker.current_state == "open"
 
         # Circuit should still be open and break
         with pytest.raises(CircuitBreakerError):
             self.breaker.call(func)
-        assert 3 == self.breaker.fail_counter
-        assert "open" == self.breaker.current_state
+        assert self.breaker.fail_counter == 3
+        assert self.breaker.current_state == "open"
 
     def test_throw_new_error_on_trip_true(self):
         """CircuitBreaker: it should throw a CircuitBreakerError exception"""
-        self.breaker = CircuitBreaker(
-            fail_max=3, **self.breaker_kwargs, throw_new_error_on_trip=True
-        )
+        self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs, throw_new_error_on_trip=True)
 
         def func():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
@@ -124,15 +118,15 @@ class CircuitBreakerStorageBasedTestCase(object):
         # Circuit should open
         with pytest.raises(CircuitBreakerError):
             self.breaker.call(func)
-        assert 3 == self.breaker.fail_counter
-        assert "open" == self.breaker.current_state
+        assert self.breaker.fail_counter == 3
+        assert self.breaker.current_state == "open"
 
     def test_traceback_in_circuitbreaker_error(self):
         """CircuitBreaker: it should open the circuit after many failures."""
         self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs)
 
         def func():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
@@ -143,32 +137,30 @@ class CircuitBreakerStorageBasedTestCase(object):
         try:
             self.breaker.call(func)
             pytest.fail("CircuitBreakerError should throw")
-        except CircuitBreakerError as e:
+        except CircuitBreakerError:
             import traceback
 
             assert "NotImplementedError" in traceback.format_exc()
-        assert 3 == self.breaker.fail_counter
-        assert "open" == self.breaker.current_state
+        assert self.breaker.fail_counter == 3
+        assert self.breaker.current_state == "open"
 
     def test_failed_call_after_timeout(self):
         """CircuitBreaker: it should half-open the circuit after timeout."""
-        self.breaker = CircuitBreaker(
-            fail_max=3, reset_timeout=0.5, **self.breaker_kwargs
-        )
+        self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.5, **self.breaker_kwargs)
 
         def func():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
-        assert "closed" == self.breaker.current_state
+        assert self.breaker.current_state == "closed"
 
         # Circuit should open
         with pytest.raises(CircuitBreakerError):
             self.breaker.call(func)
-        assert 3 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 3
 
         # Wait for timeout
         sleep(0.6)
@@ -176,43 +168,41 @@ class CircuitBreakerStorageBasedTestCase(object):
         # Circuit should open again
         with pytest.raises(CircuitBreakerError):
             self.breaker.call(func)
-        assert 4 == self.breaker.fail_counter
-        assert "open" == self.breaker.current_state
+        assert self.breaker.fail_counter == 4
+        assert self.breaker.current_state == "open"
 
     def test_successful_after_timeout(self):
         """CircuitBreaker: it should close the circuit when a call succeeds
         after timeout. The successful function should only be called once.
         """
-        self.breaker = CircuitBreaker(
-            fail_max=3, reset_timeout=1, **self.breaker_kwargs
-        )
+        self.breaker = CircuitBreaker(fail_max=3, reset_timeout=1, **self.breaker_kwargs)
 
         suc = mock.MagicMock(return_value=True)
 
         def err():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(err)
         with pytest.raises(NotImplementedError):
             self.breaker.call(err)
-        assert "closed" == self.breaker.current_state
+        assert self.breaker.current_state == "closed"
 
         # Circuit should open
         with pytest.raises(CircuitBreakerError):
             self.breaker.call(err)
         with pytest.raises(CircuitBreakerError):
             self.breaker.call(suc)
-        assert 3 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 3
 
         # Wait for timeout, at least a second since redis rounds to a second
         sleep(2)
 
         # Circuit should close again
         assert self.breaker.call(suc)
-        assert 0 == self.breaker.fail_counter
-        assert "closed" == self.breaker.current_state
-        assert 1 == suc.call_count
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.current_state == "closed"
+        assert suc.call_count == 1
 
     def test_failed_call_when_halfopen(self):
         """CircuitBreaker: it should open the circuit when a call fails in
@@ -220,17 +210,17 @@ class CircuitBreakerStorageBasedTestCase(object):
         """
 
         def fun():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         self.breaker.half_open()
-        assert 0 == self.breaker.fail_counter
-        assert "half-open" == self.breaker.current_state
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.current_state == "half-open"
 
         # Circuit should open
         with pytest.raises(CircuitBreakerError):
             self.breaker.call(fun)
-        assert 1 == self.breaker.fail_counter
-        assert "open" == self.breaker.current_state
+        assert self.breaker.fail_counter == 1
+        assert self.breaker.current_state == "open"
 
     def test_successful_call_when_halfopen(self):
         """CircuitBreaker: it should close the circuit when a call succeeds in
@@ -241,20 +231,20 @@ class CircuitBreakerStorageBasedTestCase(object):
             return True
 
         self.breaker.half_open()
-        assert 0 == self.breaker.fail_counter
-        assert "half-open" == self.breaker.current_state
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.current_state == "half-open"
 
         # Circuit should open
         assert self.breaker.call(fun)
-        assert 0 == self.breaker.fail_counter
-        assert "closed" == self.breaker.current_state
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.current_state == "closed"
 
     def test_close(self):
         """CircuitBreaker: it should allow the circuit to be closed manually."""
         self.breaker = CircuitBreaker(fail_max=3, **self.breaker_kwargs)
 
         def func():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
@@ -266,13 +256,13 @@ class CircuitBreakerStorageBasedTestCase(object):
             self.breaker.call(func)
         with pytest.raises(CircuitBreakerError):
             self.breaker.call(func)
-        assert 3 == self.breaker.fail_counter
-        assert "open" == self.breaker.current_state
+        assert self.breaker.fail_counter == 3
+        assert self.breaker.current_state == "open"
 
         # Circuit should close again
         self.breaker.close()
-        assert 0 == self.breaker.fail_counter
-        assert "closed" == self.breaker.current_state
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.current_state == "closed"
 
     def test_transition_events(self):
         """CircuitBreaker: it should call the appropriate functions on every
@@ -293,18 +283,18 @@ class CircuitBreakerStorageBasedTestCase(object):
 
         listener = Listener()
         self.breaker = CircuitBreaker(listeners=(listener,), **self.breaker_kwargs)
-        assert "closed" == self.breaker.current_state
+        assert self.breaker.current_state == "closed"
 
         self.breaker.open()
-        assert "open" == self.breaker.current_state
+        assert self.breaker.current_state == "open"
 
         self.breaker.half_open()
-        assert "half-open" == self.breaker.current_state
+        assert self.breaker.current_state == "half-open"
 
         self.breaker.close()
-        assert "closed" == self.breaker.current_state
+        assert self.breaker.current_state == "closed"
 
-        assert "closed->open,open->half-open,half-open->closed," == listener.out
+        assert listener.out == "closed->open,open->half-open,half-open->closed,"
 
     def test_call_events(self):
         """CircuitBreaker: it should call the appropriate functions on every
@@ -316,7 +306,7 @@ class CircuitBreakerStorageBasedTestCase(object):
             return True
 
         def err():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         class Listener(CircuitBreakerListener):
             def __init__(self):
@@ -341,7 +331,7 @@ class CircuitBreakerStorageBasedTestCase(object):
         assert self.breaker.call(suc)
         with pytest.raises(NotImplementedError):
             self.breaker.call(err)
-        assert "-success-failure" == listener.out
+        assert listener.out == "-success-failure"
 
     def test_generator(self):
         """CircuitBreaker: it should inspect generator values."""
@@ -363,11 +353,11 @@ class CircuitBreakerStorageBasedTestCase(object):
 
         with pytest.raises(NotImplementedError):
             e.send(True)
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
         assert next(s)
         with pytest.raises((StopIteration, RuntimeError)):
             next(s)
-        assert 0 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 0
 
     def test_contextmanager(self):
         """CircuitBreaker: it should catch in a with statement"""
@@ -378,12 +368,12 @@ class CircuitBreakerStorageBasedTestCase(object):
             def wrapper(self):
                 try:
                     yield
-                except NotImplementedError as e:
-                    raise ValueError()
+                except NotImplementedError:
+                    raise ValueError
 
             def foo(self):
                 with self.wrapper():
-                    raise NotImplementedError()
+                    raise NotImplementedError
 
         try:
             Foo().foo()
@@ -391,10 +381,8 @@ class CircuitBreakerStorageBasedTestCase(object):
             assert isinstance(e, ValueError)
 
 
-class CircuitBreakerConfigurationTestCase(object):
-    """
-    Tests for the CircuitBreaker class.
-    """
+class CircuitBreakerConfigurationTestCase:
+    """Tests for the CircuitBreaker class."""
 
     def test_default_state(self):
         """CircuitBreaker: it should get initial state from state_storage."""
@@ -405,63 +393,63 @@ class CircuitBreakerConfigurationTestCase(object):
 
     def test_default_params(self):
         """CircuitBreaker: it should define smart defaults."""
-        assert 0 == self.breaker.fail_counter
-        assert 60 == self.breaker.reset_timeout
-        assert 5 == self.breaker.fail_max
-        assert "closed" == self.breaker.current_state
-        assert () == self.breaker.excluded_exceptions
-        assert () == self.breaker.listeners
-        assert "memory" == self.breaker._state_storage.name
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.reset_timeout == 60
+        assert self.breaker.fail_max == 5
+        assert self.breaker.current_state == "closed"
+        assert self.breaker.excluded_exceptions == ()
+        assert self.breaker.listeners == ()
+        assert self.breaker._state_storage.name == "memory"
 
     def test_new_with_custom_reset_timeout(self):
         """CircuitBreaker: it should support a custom reset timeout value."""
         self.breaker = CircuitBreaker(reset_timeout=30)
-        assert 0 == self.breaker.fail_counter
-        assert 30 == self.breaker.reset_timeout
-        assert 5 == self.breaker.fail_max
-        assert () == self.breaker.excluded_exceptions
-        assert () == self.breaker.listeners
-        assert "memory" == self.breaker._state_storage.name
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.reset_timeout == 30
+        assert self.breaker.fail_max == 5
+        assert self.breaker.excluded_exceptions == ()
+        assert self.breaker.listeners == ()
+        assert self.breaker._state_storage.name == "memory"
 
     def test_new_with_custom_fail_max(self):
         """CircuitBreaker: it should support a custom maximum number of
         failures.
         """
         self.breaker = CircuitBreaker(fail_max=10)
-        assert 0 == self.breaker.fail_counter
-        assert 60 == self.breaker.reset_timeout
-        assert 10 == self.breaker.fail_max
-        assert () == self.breaker.excluded_exceptions
-        assert () == self.breaker.listeners
-        assert "memory" == self.breaker._state_storage.name
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.reset_timeout == 60
+        assert self.breaker.fail_max == 10
+        assert self.breaker.excluded_exceptions == ()
+        assert self.breaker.listeners == ()
+        assert self.breaker._state_storage.name == "memory"
 
     def test_new_with_custom_excluded_exceptions(self):
         """CircuitBreaker: it should support a custom list of excluded
         exceptions.
         """
         self.breaker = CircuitBreaker(exclude=[Exception])
-        assert 0 == self.breaker.fail_counter
-        assert 60 == self.breaker.reset_timeout
-        assert 5 == self.breaker.fail_max
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.reset_timeout == 60
+        assert self.breaker.fail_max == 5
         assert (Exception,) == self.breaker.excluded_exceptions
-        assert () == self.breaker.listeners
-        assert "memory" == self.breaker._state_storage.name
+        assert self.breaker.listeners == ()
+        assert self.breaker._state_storage.name == "memory"
 
     def test_fail_max_setter(self):
         """CircuitBreaker: it should allow the user to set a new value for
         'fail_max'.
         """
-        assert 5 == self.breaker.fail_max
+        assert self.breaker.fail_max == 5
         self.breaker.fail_max = 10
-        assert 10 == self.breaker.fail_max
+        assert self.breaker.fail_max == 10
 
     def test_reset_timeout_setter(self):
         """CircuitBreaker: it should allow the user to set a new value for
         'reset_timeout'.
         """
-        assert 60 == self.breaker.reset_timeout
+        assert self.breaker.reset_timeout == 60
         self.breaker.reset_timeout = 30
-        assert 30 == self.breaker.reset_timeout
+        assert self.breaker.reset_timeout == 30
 
     def test_call_with_no_args(self):
         """CircuitBreaker: it should be able to invoke functions with no-args."""
@@ -524,7 +512,7 @@ class CircuitBreakerConfigurationTestCase(object):
         """CircuitBreaker: it should allow the user to add a listener at a
         later time.
         """
-        assert () == self.breaker.listeners
+        assert self.breaker.listeners == ()
 
         first = CircuitBreakerListener()
         self.breaker.add_listener(first)
@@ -549,39 +537,39 @@ class CircuitBreakerConfigurationTestCase(object):
         assert (first,) == self.breaker.listeners
 
         self.breaker.remove_listener(first)
-        assert () == self.breaker.listeners
+        assert self.breaker.listeners == ()
 
     def test_excluded_exceptions(self):
         """CircuitBreaker: it should ignore specific exceptions."""
         self.breaker = CircuitBreaker(exclude=[LookupError])
 
         def err_1():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         def err_2():
-            raise LookupError()
+            raise LookupError
 
         def err_3():
-            raise KeyError()
+            raise KeyError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(err_1)
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
 
         # LookupError is not considered a system error
         with pytest.raises(LookupError):
             self.breaker.call(err_2)
-        assert 0 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 0
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(err_1)
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
 
         # Should consider subclasses as well (KeyError is a subclass of
         # LookupError)
         with pytest.raises(KeyError):
             self.breaker.call(err_3)
-        assert 0 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 0
 
     def test_excluded_callable_exceptions(self):
         """CircuitBreaker: it should ignore specific exceptions that return true from a filtering callable."""
@@ -600,19 +588,19 @@ class CircuitBreakerConfigurationTestCase(object):
             raise TestException("good")
 
         def err_3():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(TestException):
             self.breaker.call(err_1)
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
 
         with pytest.raises(TestException):
             self.breaker.call(err_2)
-        assert 0 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 0
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(err_3)
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
 
     def test_excluded_callable_and_types_exceptions(self):
         """CircuitBreaker: it should allow a mix of exclusions that includes both filter functions and types."""
@@ -631,32 +619,32 @@ class CircuitBreakerConfigurationTestCase(object):
             raise TestException("good")
 
         def err_3():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         def err_4():
-            raise LookupError()
+            raise LookupError
 
         with pytest.raises(TestException):
             self.breaker.call(err_1)
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
 
         with pytest.raises(TestException):
             self.breaker.call(err_2)
-        assert 0 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 0
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(err_3)
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
 
         with pytest.raises(LookupError):
             self.breaker.call(err_4)
-        assert 0 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 0
 
     def test_add_excluded_exception(self):
         """CircuitBreaker: it should allow the user to exclude an exception at a
         later time.
         """
-        assert () == self.breaker.excluded_exceptions
+        assert self.breaker.excluded_exceptions == ()
 
         self.breaker.add_excluded_exception(NotImplementedError)
         assert (NotImplementedError,) == self.breaker.excluded_exceptions
@@ -679,7 +667,7 @@ class CircuitBreakerConfigurationTestCase(object):
         assert (NotImplementedError,) == self.breaker.excluded_exceptions
 
         self.breaker.remove_excluded_exception(NotImplementedError)
-        assert () == self.breaker.excluded_exceptions
+        assert self.breaker.excluded_exceptions == ()
 
     def test_decorator(self):
         """CircuitBreaker: it should be a decorator."""
@@ -692,19 +680,19 @@ class CircuitBreakerConfigurationTestCase(object):
         @self.breaker
         def err(value):
             "Docstring"
-            raise NotImplementedError()
+            raise NotImplementedError
 
-        assert "Docstring" == suc.__doc__
-        assert "Docstring" == err.__doc__
-        assert "suc" == suc.__name__
-        assert "err" == err.__name__
+        assert suc.__doc__ == "Docstring"
+        assert err.__doc__ == "Docstring"
+        assert suc.__name__ == "suc"
+        assert err.__name__ == "err"
 
         with pytest.raises(NotImplementedError):
             err(True)
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
 
         assert suc(True)
-        assert 0 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 0
 
     @testing.gen_test
     def test_decorator_call_future(self):
@@ -720,21 +708,21 @@ class CircuitBreakerConfigurationTestCase(object):
         @gen.coroutine
         def err(value):
             "Docstring"
-            raise NotImplementedError()
+            raise NotImplementedError
 
-        assert "Docstring" == suc.__doc__
-        assert "Docstring" == err.__doc__
-        assert "suc" == suc.__name__
-        assert "err" == err.__name__
+        assert suc.__doc__ == "Docstring"
+        assert err.__doc__ == "Docstring"
+        assert suc.__name__ == "suc"
+        assert err.__name__ == "err"
 
         with pytest.raises(NotImplementedError):
             yield err(True)
 
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
 
         ret = yield suc(True)
         assert ret
-        assert 0 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 0
 
     @mock.patch("pybreaker.HAS_TORNADO_SUPPORT", False)
     def test_no_tornado_raises(self):
@@ -763,9 +751,7 @@ class CircuitBreakerTestCase(
     CircuitBreakerStorageBasedTestCase,
     CircuitBreakerConfigurationTestCase,
 ):
-    """
-    Tests for the CircuitBreaker class.
-    """
+    """Tests for the CircuitBreaker class."""
 
     def setUp(self):
         super(CircuitBreakerTestCase, self).setUp()
@@ -816,18 +802,12 @@ import fakeredis
 from redis.exceptions import RedisError
 
 
-class CircuitBreakerRedisTestCase(
-    unittest.TestCase, CircuitBreakerStorageBasedTestCase
-):
-    """
-    Tests for the CircuitBreaker class.
-    """
+class CircuitBreakerRedisTestCase(unittest.TestCase, CircuitBreakerStorageBasedTestCase):
+    """Tests for the CircuitBreaker class."""
 
     def setUp(self):
         self.redis = fakeredis.FakeStrictRedis()
-        self.breaker_kwargs = {
-            "state_storage": CircuitRedisStorage("closed", self.redis)
-        }
+        self.breaker_kwargs = {"state_storage": CircuitRedisStorage("closed", self.redis)}
         self.breaker = CircuitBreaker(**self.breaker_kwargs)
 
     def tearDown(self):
@@ -835,20 +815,16 @@ class CircuitBreakerRedisTestCase(
 
     def test_namespace(self):
         self.redis.flushall()
-        self.breaker_kwargs = {
-            "state_storage": CircuitRedisStorage(
-                "closed", self.redis, namespace="my_app"
-            )
-        }
+        self.breaker_kwargs = {"state_storage": CircuitRedisStorage("closed", self.redis, namespace="my_app")}
         self.breaker = CircuitBreaker(**self.breaker_kwargs)
 
         def func():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
         keys = self.redis.keys()
-        assert 2 == len(keys)
+        assert len(keys) == 2
         assert keys[0].decode("utf-8").startswith("my_app")
         assert keys[1].decode("utf-8").startswith("my_app")
 
@@ -856,9 +832,7 @@ class CircuitBreakerRedisTestCase(
         logger = logging.getLogger("pybreaker")
         logger.setLevel(logging.FATAL)
         self.breaker_kwargs = {
-            "state_storage": CircuitRedisStorage(
-                "closed", self.redis, fallback_circuit_state="open"
-            )
+            "state_storage": CircuitRedisStorage("closed", self.redis, fallback_circuit_state="open")
         }
         self.breaker = CircuitBreaker(**self.breaker_kwargs)
 
@@ -867,37 +841,33 @@ class CircuitBreakerRedisTestCase(
 
         with mock.patch.object(self.redis, "get", new=func):
             state = self.breaker.state
-            assert "open" == state.name
+            assert state.name == "open"
 
     def test_missing_state(self):
         """CircuitBreakerRedis: If state on Redis is missing, it should set the
         fallback circuit state and reset the fail counter to 0.
         """
         self.breaker_kwargs = {
-            "state_storage": CircuitRedisStorage(
-                "closed", self.redis, fallback_circuit_state="open"
-            )
+            "state_storage": CircuitRedisStorage("closed", self.redis, fallback_circuit_state="open")
         }
         self.breaker = CircuitBreaker(**self.breaker_kwargs)
 
         def func():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
-        assert 1 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1
 
         with mock.patch.object(self.redis, "get", new=lambda k: None):
             state = self.breaker.state
-            assert "open" == state.name
-            assert 0 == self.breaker.fail_counter
+            assert state.name == "open"
+            assert self.breaker.fail_counter == 0
 
     def test_cluster_mode(self):
         self.redis.flushall()
 
-        storage = CircuitRedisStorage(
-            STATE_OPEN, self.redis, namespace="my_app", cluster_mode=True
-        )
+        storage = CircuitRedisStorage(STATE_OPEN, self.redis, namespace="my_app", cluster_mode=True)
         breaker_kwargs = {"state_storage": storage}
 
         now = datetime.now()
@@ -916,25 +886,19 @@ from types import MethodType
 
 
 class CircuitBreakerThreadsTestCase(unittest.TestCase):
-    """
-    Tests to reproduce common synchronization errors on CircuitBreaker class.
-    """
+    """Tests to reproduce common synchronization errors on CircuitBreaker class."""
 
     def setUp(self):
         self.breaker = CircuitBreaker(fail_max=3000, reset_timeout=1)
 
     def _start_threads(self, target, n):
-        """
-        Starts `n` threads that calls `target` and waits for them to finish.
-        """
+        """Starts `n` threads that calls `target` and waits for them to finish."""
         threads = [threading.Thread(target=target) for i in range(n)]
         [t.start() for t in threads]
         [t.join() for t in threads]
 
     def _mock_function(self, obj, func):
-        """
-        Replaces a bounded function in `self.breaker` by another.
-        """
+        """Replaces a bounded function in `self.breaker` by another."""
         setattr(obj, func.__name__, MethodType(func, self.breaker))
 
     def test_fail_thread_safety(self):
@@ -948,7 +912,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
 
         @self.breaker
         def err():
-            raise SpecificException()
+            raise SpecificException
 
         def trigger_error():
             for n in range(500):
@@ -964,7 +928,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
 
         self._mock_function(self.breaker, _inc_counter)
         self._start_threads(trigger_error, 3)
-        assert 1500 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1500
 
     def test_success_thread_safety(self):
         """CircuitBreaker: it should compute a successful call atomically
@@ -989,7 +953,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
 
         self.breaker.add_listener(SuccessListener())
         self._start_threads(trigger_success, 3)
-        assert 1500 == self.breaker._success_counter
+        assert self.breaker._success_counter == 1500
 
     def test_half_open_thread_safety(self):
         """CircuitBreaker: it should allow only one trial call when the
@@ -1002,7 +966,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
 
         @self.breaker
         def err():
-            raise Exception()
+            raise Exception
 
         def trigger_failure():
             try:
@@ -1025,7 +989,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
         self.breaker.add_listener(state_listener)
 
         self._start_threads(trigger_failure, 5)
-        assert 1 == state_listener._count
+        assert state_listener._count == 1
 
     def test_fail_max_thread_safety(self):
         """CircuitBreaker: it should not allow more failed calls than
@@ -1034,7 +998,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
 
         @self.breaker
         def err():
-            raise Exception()
+            raise Exception
 
         def trigger_error():
             for i in range(2000):
@@ -1053,8 +1017,7 @@ class CircuitBreakerThreadsTestCase(unittest.TestCase):
 
 
 class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
-    """
-    Tests to reproduce common concurrency between different machines
+    """Tests to reproduce common concurrency between different machines
     connecting to redis. This is simulated locally using threads.
     """
 
@@ -1071,17 +1034,13 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
         self.redis.flushall()
 
     def _start_threads(self, target, n):
-        """
-        Starts `n` threads that calls `target` and waits for them to finish.
-        """
+        """Starts `n` threads that calls `target` and waits for them to finish."""
         threads = [threading.Thread(target=target) for i in range(n)]
         [t.start() for t in threads]
         [t.join() for t in threads]
 
     def _mock_function(self, obj, func):
-        """
-        Replaces a bounded function in `self.breaker` by another.
-        """
+        """Replaces a bounded function in `self.breaker` by another."""
         setattr(obj, func.__name__, MethodType(func, self.breaker))
 
     def test_fail_thread_safety(self):
@@ -1095,7 +1054,7 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
 
         @self.breaker
         def err():
-            raise SpecificException()
+            raise SpecificException
 
         def trigger_error():
             for n in range(500):
@@ -1110,7 +1069,7 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
 
         self._mock_function(self.breaker, _inc_counter)
         self._start_threads(trigger_error, 3)
-        assert 1500 == self.breaker.fail_counter
+        assert self.breaker.fail_counter == 1500
 
     def test_success_thread_safety(self):
         """CircuitBreaker: it should compute a successful call atomically
@@ -1135,7 +1094,7 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
 
         self.breaker.add_listener(SuccessListener())
         self._start_threads(trigger_success, 3)
-        assert 1500 == self.breaker._success_counter
+        assert self.breaker._success_counter == 1500
 
     def test_half_open_thread_safety(self):
         """CircuitBreaker: it should allow only one trial call when the
@@ -1148,7 +1107,7 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
 
         @self.breaker
         def err():
-            raise Exception()
+            raise Exception
 
         def trigger_failure():
             try:
@@ -1171,7 +1130,7 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
         self.breaker.add_listener(state_listener)
 
         self._start_threads(trigger_failure, 5)
-        assert 1 == state_listener._count
+        assert state_listener._count == 1
 
     def test_fail_max_thread_safety(self):
         """CircuitBreaker: it should not allow more failed calls than 'fail_max'
@@ -1184,7 +1143,7 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
 
         @self.breaker
         def err():
-            raise Exception()
+            raise Exception
 
         def trigger_error():
             for i in range(2000):
@@ -1204,14 +1163,10 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
 
 
 class CircuitBreakerContextManagerTestCase(unittest.TestCase):
-    """
-    Tests for the CircuitBreaker class, when used as a context manager.
-    """
+    """Tests for the CircuitBreaker class, when used as a context manager."""
 
     def test_calling(self):
-        """
-        Test that the CircuitBreaker calling() API returns a context manager and works as expected.
-        """
+        """Test that the CircuitBreaker calling() API returns a context manager and works as expected."""
 
         class TestError(Exception):
             pass
@@ -1229,8 +1184,8 @@ class CircuitBreakerContextManagerTestCase(unittest.TestCase):
 
         self.assertRaises(TestError, _do_raise)
         self.assertRaises(CircuitBreakerError, _do_raise)
-        assert 2 == breaker.fail_counter
-        assert "open" == breaker.current_state
+        assert breaker.fail_counter == 2
+        assert breaker.current_state == "open"
 
         # Still fails while circuit breaker is open:
         self.assertRaises(CircuitBreakerError, _do_succeed)
@@ -1240,8 +1195,8 @@ class CircuitBreakerContextManagerTestCase(unittest.TestCase):
 
         _do_succeed()
         mock_fn.assert_called_once()
-        assert 0 == breaker.fail_counter
-        assert "closed" == breaker.current_state
+        assert breaker.fail_counter == 0
+        assert breaker.current_state == "closed"
 
 
 if __name__ == "__main__":
