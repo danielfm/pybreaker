@@ -5,13 +5,13 @@ post-install = "pre-commit install"
 
 [tool.pyprojectx.venv]
 dir = "@PROJECT_DIR/venv"
-requirements = ["setuptools", "-e .", "types-mock", "types-redis"]
+requirements = ["setuptools", "pytest", "mock", "tornado", "redis", "fakeredis", "types-mock", "types-redis", "-e ."]
 
 [tool.pyprojectx.aliases]
 install = "pw@ --install-context venv"
-format = ["@install", "black src", "isort src"]
+format = ["@install", "black src tests", "isort src tests"]
 lint = ["@install", "mypy --python-executable venv/bin/python --no-incremental"]
-test = { cmd = "python setup.py test", ctx = "venv" }
+test = { cmd = "pytest", ctx = "venv" }
 clean = "pxrm .eggs venv src/pybreaker.egg-info"
 
 [tool.mypy]
