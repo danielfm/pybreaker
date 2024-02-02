@@ -41,7 +41,8 @@ requirements = ["pytest", "mock", "tornado", "redis", "fakeredis", "types-mock",
 [tool.pyprojectx.aliases]
 install = "pw@ --install-context venv"
 format = ["ruff format", "ruff check --select I --fix"]
-lint = ["@install", "ruff check src", "mypy --python-executable venv/bin/python --no-incremental"]
+lint = ["@install", "ruff check src"]
+type-check = ["@install", "mypy --python-executable venv/bin/python --no-incremental"]
 fix-ruff = "ruff check --fix"
 test = { cmd = "pytest", ctx = "venv" }
 clean = "pxrm .eggs venv src/pybreaker.egg-info"
@@ -55,8 +56,9 @@ files = ["src", "tests/typechecks.py"]
 
 [tool.ruff]
 line-length = 120
+[tool.ruff.lint]
 select = ["ALL"]
 fixable = ["ALL"]
 ignore = ["ISC001", "ANN", "FA", "FBT", "D100", "D102", "D205", "D103", "D104", "D105", "D213", "D203", "T201", "TRY003", "EM102", "COM812", "S602", "S603", "S604", "S605", "S607", "S324"]
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "src/*" = ["PLR0913", "TCH002", "D401", "D404", "SLF001", "BLE001", "TRY301", "DTZ001", "DTZ003", "SIM102", "TRY300"]
