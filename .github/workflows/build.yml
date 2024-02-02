@@ -1,0 +1,40 @@
+name: pybreaker test matrix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.8", "3.9", "3.10", "3.11", "3.12" ]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache pyprojectx
+        uses: actions/cache@v3
+        with:
+          path: .pyprojectx
+          key: ${{ hashFiles('pyproject.toml') }}-${{ matrix.python-version }}-pyprojectx
+      - name: Cache venv
+        uses: actions/cache@v3
+        with:
+          path: venv
+          key: ${{ hashFiles('pdm.lock') }}-${{ matrix.python-version }}-venv
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Test and build
+        run: |
+          python pw lint
+          python pw test
