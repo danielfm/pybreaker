@@ -1,16 +1,25 @@
 repos:
-  - repo: https://github.com/psf/black
-    rev: 22.6.0
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
     hooks:
-      - id: black
-  - repo: https://github.com/pycqa/isort
-    rev: 5.10.1
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+
+  - repo: local
     hooks:
-      - id: isort
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.971
-    hooks:
-      - id: mypy
+      - id: format
+        name: format
+        entry: pw format
+        language: script
+        types: [ python ]
         pass_filenames: false
-        additional_dependencies:
-          - "types-redis"
+
+  - repo: local
+    hooks:
+      - id: lint
+        name: lint
+        entry: pw lint
+        language: script
+        types: [ python ]
+        pass_filenames: false

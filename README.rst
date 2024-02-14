@@ -27,7 +27,7 @@ Features
 Requirements
 ------------
 
-* `Python`_ 3.7+
+* `Python`_ 3.8+
 
 
 Installation
@@ -38,13 +38,14 @@ PyBreaker from `PyPI`_::
 
     $ pip install pybreaker
 
-If you are a `Git`_ user, you might want to download the current development
-version::
+If you are a `Git`_ user, you might want to install the current development
+version in editable mode::
 
     $ git clone git://github.com/danielfm/pybreaker.git
     $ cd pybreaker
-    $ python setup.py test
-    $ python setup.py install
+    $ # run tests (on windows omit ./)
+    $ ./pw test
+    $ pip install -e .
 
 
 Usage
@@ -108,7 +109,7 @@ fail with:
 
 .. note::
 
-  If you require multiple, independent CircuitBreakers and wish to store their states in Redis, it is essential to assign a ``unique namespace`` for each 
+  If you require multiple, independent CircuitBreakers and wish to store their states in Redis, it is essential to assign a ``unique namespace`` for each
   CircuitBreaker instance. This can be achieved by specifying a distinct namespace parameter in the CircuitRedisStorage constructor. for example:
 
 .. code:: python
@@ -318,6 +319,24 @@ change its current state:
 These properties and functions might and should be exposed to the operations
 staff somehow as they help them to detect problems in the system.
 
+Contributing
+-------------
+
+Run tests::
+
+    $ ./pw test
+
+Code formatting (black and isort) and linting (mypy) ::
+
+    $ ./pw format
+    $ ./pw lint
+
+Above commands will automatically install the necessary tools inside *.pyprojectx*
+and also install pre-commit hooks.
+
+List available commands::
+
+    $ ./pw -i
 
 .. _Python: http://python.org
 .. _Jython: http://jython.org

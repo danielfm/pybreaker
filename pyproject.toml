@@ -1,9 +1,64 @@
+[project]
+name = "pybreaker"
+version = "1.2.0"
+description = "Python implementation of the Circuit Breaker pattern"
+authors = [
+    { name = "Daniel Fernandes Martins", email = "daniel.tritone@gmail.com" },
+]
+readme = "README.rst"
+urls = { Source = "http://github.com/danielfm/pybreaker" }
+license = { file = "LICENSE" }
+keywords = ["design", "pattern", "circuit", "breaker", "integration"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries",
+]
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest", "mock", "tornado", "redis", "fakeredis", "types-mock", "types-redis"]
+
+[build-system]
+requires = ["flit_core >=3.9"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.sdist]
+exclude = [".github", "tests", ".gitignore", ".pre-commit-config.yaml", "pw*"]
+
+[tool.pyprojectx]
+[tool.pyprojectx.main]
+requirements = ["pre-commit<=3.6", "ruff", "mypy", "px-utils", "flit"]
+post-install = "pre-commit install"
+
+[tool.pyprojectx.venv]
+dir = "@PROJECT_DIR/venv"
+requirements = ["pytest", "mock", "tornado", "redis", "fakeredis", "types-mock", "types-redis", "-e ."]
+
+[tool.pyprojectx.aliases]
+install = "pw@ --install-context venv"
+format = ["ruff format", "ruff check --select I --fix"]
+lint = ["@install", "ruff check src"]
+type-check = ["@install", "mypy --python-executable venv/bin/python --no-incremental"]
+fix-ruff = "ruff check --fix"
+test = { cmd = "pytest", ctx = "venv" }
+clean = "pxrm .eggs venv src/pybreaker.egg-info"
+
 [tool.mypy]
 disallow_untyped_defs = true
 ignore_missing_imports = true
 no_implicit_optional = true
 show_error_codes = true
-files = ["src/pybreaker.py"]
+files = ["src", "tests/typechecks.py"]
 
-[tool.isort]
-profile = "black"
+[tool.ruff]
+line-length = 120
+[tool.ruff.lint]
+select = ["ALL"]
+fixable = ["ALL"]
+ignore = ["ISC001", "ANN", "FA", "FBT", "D100", "D102", "D205", "D103", "D104", "D105", "D213", "D203", "T201", "TRY003", "EM102", "COM812", "S602", "S603", "S604", "S605", "S607", "S324"]
+[tool.ruff.lint.per-file-ignores]
+"src/*" = ["PLR0913", "TCH002", "D401", "D404", "SLF001", "BLE001", "TRY301", "DTZ001", "DTZ003", "SIM102", "TRY300"]
