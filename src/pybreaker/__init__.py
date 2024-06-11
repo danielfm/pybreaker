@@ -15,7 +15,7 @@ import threading
 import time
 import types
 from abc import abstractmethod
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from functools import wraps
 from typing import (
     Any,
@@ -254,7 +254,7 @@ class CircuitBreaker:
     def open(self) -> bool:
         """Open the circuit, e.g., the following calls will immediately fail until timeout elapses."""
         with self._lock:
-            self._state_storage.opened_at = datetime.utcnow()
+            self._state_storage.opened_at = datetime.now(UTC)
             self.state = self._state_storage.state = STATE_OPEN  # type: ignore[assignment]
 
             return self._throw_new_error_on_trip
@@ -763,7 +763,7 @@ class CircuitOpenState(CircuitBreakerState):
         """
         timeout = timedelta(seconds=self._breaker.reset_timeout)
         opened_at = self._breaker._state_storage.opened_at
-        if opened_at and datetime.utcnow() < opened_at + timeout:
+        if opened_at and datetime.now(UTC) < opened_at + timeout:
             error_msg = "Timeout not elapsed yet, circuit breaker still open"
             raise CircuitBreakerError(error_msg)
         self._breaker.half_open()
