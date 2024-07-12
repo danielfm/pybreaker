@@ -15,7 +15,7 @@ import threading
 import time
 import types
 from abc import abstractmethod
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from functools import wraps
 from typing import (
     Any,
