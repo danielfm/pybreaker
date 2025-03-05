@@ -17,14 +17,12 @@ import types
 from abc import abstractmethod
 from datetime import datetime, timedelta
 from functools import wraps
+from collections.abc import Generator, Iterable, Sequence
 from typing import (
     Any,
     Callable,
-    Generator,
-    Iterable,
     Literal,
     NoReturn,
-    Sequence,
     TypeVar,
     Union,
     cast,
@@ -164,7 +162,9 @@ class CircuitBreaker:
     def state(self, state_str: str) -> None:
         """Set cached state and notify listeners of newly cached state."""
         with self._lock:
-            self._state = self._create_new_state(state_str, prev_state=self._state, notify=True)
+            self._state = self._create_new_state(
+                state_str, prev_state=self._state, notify=True
+            )
 
     @property
     def current_state(self) -> str:
@@ -567,7 +567,9 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 class CircuitBreakerListener:
     """Listener class used to plug code to a ``CircuitBreaker`` instance when certain events happen."""
 
-    def before_call(self, cb: CircuitBreaker, func: Callable[..., T], *args: Any, **kwargs: Any) -> None:
+    def before_call(
+        self, cb: CircuitBreaker, func: Callable[..., T], *args: Any, **kwargs: Any
+    ) -> None:
         """This callback function is called before the circuit breaker `cb` calls `fn`."""
 
     def failure(self, cb: CircuitBreaker, exc: BaseException) -> None:
@@ -599,12 +601,14 @@ class CircuitBreakerState:
         return self._name
 
     @overload
-    def _handle_error(self, exc: BaseException, reraise: Literal[True] = ...) -> NoReturn:
-        ...
+    def _handle_error(
+        self, exc: BaseException, reraise: Literal[True] = ...
+    ) -> NoReturn: ...
 
     @overload
-    def _handle_error(self, exc: BaseException, reraise: Literal[False] = ...) -> None:
-        ...
+    def _handle_error(
+        self, exc: BaseException, reraise: Literal[False] = ...
+    ) -> None: ...
 
     def _handle_error(self, exc: BaseException, reraise: bool = True) -> None:
         """Handle a failed call to the guarded operation."""
