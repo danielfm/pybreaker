@@ -56,7 +56,7 @@ files = ["src", "tests/typechecks.py"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py38"
 [tool.ruff.lint]
 select = ["ALL"]
 fixable = ["ALL"]
