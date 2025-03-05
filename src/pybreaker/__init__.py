@@ -18,18 +18,19 @@ from abc import abstractmethod
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
-    Generator,
-    Iterable,
     Literal,
     NoReturn,
-    Sequence,
     TypeVar,
     Union,
     cast,
     overload,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable, Sequence
 
 # For compatibility with Python 3.10 and earlier.
 # Otherwise, `from datetime import UTC` would suffice.

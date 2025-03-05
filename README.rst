@@ -27,7 +27,7 @@ Features
 Requirements
 ------------
 
-* `Python`_ 3.8+
+* `Python`_ 3.9+
 
 
 Installation
