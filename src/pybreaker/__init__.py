@@ -15,7 +15,7 @@ import threading
 import time
 import types
 from abc import abstractmethod
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from functools import wraps
 from typing import (
     Any,
@@ -30,6 +30,14 @@ from typing import (
     cast,
     overload,
 )
+
+try:
+    from datetime import UTC
+except ImportError:
+    # For compatibility with Python 3.10 and earlier
+    from datetime import timezone
+
+    UTC = timezone.utc
 
 try:
     from tornado import gen
