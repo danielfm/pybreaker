@@ -520,7 +520,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         try:
             timestamp = self._redis.get(self._namespace("opened_at"))
             if timestamp:
-                return datetime(*time.gmtime(int(timestamp))[:6])
+                return datetime(*time.gmtime(int(timestamp))[:6], tzinfo=UTC)
         except RedisError:
             self.logger.exception("RedisError")
         return None
