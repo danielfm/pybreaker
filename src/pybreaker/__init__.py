@@ -31,10 +31,11 @@ from typing import (
     overload,
 )
 
+# For compatibility with Python 3.10 and earlier.
+# Otherwise, `from datetime import UTC` would suffice.
 try:
-    from datetime import UTC
+    from datetime import UTC  # type: ignore[attr-defined]
 except ImportError:
-    # For compatibility with Python 3.10 and earlier
     from datetime import timezone
 
     UTC = timezone.utc
