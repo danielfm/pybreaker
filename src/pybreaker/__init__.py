@@ -31,6 +31,15 @@ from typing import (
     overload,
 )
 
+# For compatibility with Python 3.10 and earlier.
+# Otherwise, `from datetime import UTC` would suffice.
+try:
+    from datetime import UTC  # type: ignore[attr-defined]
+except ImportError:
+    from datetime import timezone
+
+    UTC = timezone.utc
+
 try:
     from tornado import gen
 
@@ -254,7 +263,7 @@ class CircuitBreaker:
     def open(self) -> bool:
         """Open the circuit, e.g., the following calls will immediately fail until timeout elapses."""
         with self._lock:
-            self._state_storage.opened_at = datetime.utcnow()
+            self._state_storage.opened_at = datetime.now(UTC)
             self.state = self._state_storage.state = STATE_OPEN  # type: ignore[assignment]
 
             return self._throw_new_error_on_trip
@@ -520,7 +529,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         try:
             timestamp = self._redis.get(self._namespace("opened_at"))
             if timestamp:
-                return datetime(*time.gmtime(int(timestamp))[:6])
+                return datetime(*time.gmtime(int(timestamp))[:6], tzinfo=UTC)
         except RedisError:
             self.logger.exception("RedisError")
         return None
@@ -763,7 +772,7 @@ class CircuitOpenState(CircuitBreakerState):
         """
         timeout = timedelta(seconds=self._breaker.reset_timeout)
         opened_at = self._breaker._state_storage.opened_at
-        if opened_at and datetime.utcnow() < opened_at + timeout:
+        if opened_at and datetime.now(UTC) < opened_at + timeout:
             error_msg = "Timeout not elapsed yet, circuit breaker still open"
             raise CircuitBreakerError(error_msg)
         self._breaker.half_open()
