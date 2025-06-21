@@ -92,6 +92,7 @@ class CircuitBreaker:
         self,
         fail_max: int = 5,
         reset_timeout: float = 60,
+        success_threshold: int = 1,
         exclude: Iterable[type[ExceptionType] | Callable[[Any], bool]] | None = None,
         listeners: Sequence[CBListenerType] | None = None,
         state_storage: CircuitBreakerStorage | None = None,
@@ -105,6 +106,7 @@ class CircuitBreaker:
 
         self._fail_max = fail_max
         self._reset_timeout = reset_timeout
+        self._success_threshold = success_threshold
 
         self._excluded_exceptions = list(exclude or [])
         self._listeners = list(listeners or [])
@@ -116,6 +118,11 @@ class CircuitBreaker:
     def fail_counter(self) -> int:
         """Return the current number of consecutive failures."""
         return self._state_storage.counter
+
+    @property
+    def success_counter(self) -> int:
+        """Return the current number of consecutive successes in half-open state."""
+        return self._state_storage.success_counter
 
     @property
     def fail_max(self) -> int:
@@ -138,6 +145,16 @@ class CircuitBreaker:
     def reset_timeout(self, timeout: float) -> None:
         """Set the `timeout` period, in seconds, this circuit breaker should be kept open."""
         self._reset_timeout = timeout
+
+    @property
+    def success_threshold(self) -> int:
+        """Return the number of successful requests required before transitioning from half-open to closed state."""
+        return self._success_threshold
+
+    @success_threshold.setter
+    def success_threshold(self, threshold: int) -> None:
+        """Set the number of successful requests required before transitioning from half-open to closed state."""
+        self._success_threshold = threshold
 
     def _create_new_state(
         self,
@@ -280,6 +297,7 @@ class CircuitBreaker:
     def close(self) -> None:
         """Close the circuit, e.g. lets the following calls execute as usual."""
         with self._lock:
+            self._state_storage.reset_success_counter()  # Reset success counter when closing
             self.state = self._state_storage.state = STATE_CLOSED  # type: ignore[assignment]
 
     def __call__(self, *call_args: Any, **call_kwargs: bool) -> Callable:
@@ -369,10 +387,21 @@ class CircuitBreakerStorage:
     def reset_counter(self) -> None:
         """Override this method to set the failure counter to zero."""
 
+    def increment_success_counter(self) -> None:
+        """Override this method to increase the success counter by one."""
+
+    def reset_success_counter(self) -> None:
+        """Override this method to set the success counter to zero."""
+
     @property
     @abstractmethod
     def counter(self) -> int:
         """Override this method to retrieve the current value of the failure counter."""
+
+    @property
+    @abstractmethod
+    def success_counter(self) -> int:
+        """Override this method to retrieve the current value of the success counter."""
 
     @property
     @abstractmethod
@@ -391,6 +420,7 @@ class CircuitMemoryStorage(CircuitBreakerStorage):
         """Create a new instance with the given `state`."""
         super().__init__("memory")
         self._fail_counter = 0
+        self._success_counter = 0
         self._opened_at: datetime | None = None
         self._state = state
 
@@ -412,10 +442,23 @@ class CircuitMemoryStorage(CircuitBreakerStorage):
         """Set the failure counter to zero."""
         self._fail_counter = 0
 
+    def increment_success_counter(self) -> None:
+        """Increase the success counter by one."""
+        self._success_counter += 1
+
+    def reset_success_counter(self) -> None:
+        """Set the success counter to zero."""
+        self._success_counter = 0
+
     @property
     def counter(self) -> int:
         """Return the current value of the failure counter."""
         return self._fail_counter
+
+    @property
+    def success_counter(self) -> int:
+        """Return the current value of the success counter."""
+        return self._success_counter
 
     @property
     def opened_at(self) -> datetime | None:
@@ -465,6 +508,7 @@ class CircuitRedisStorage(CircuitBreakerStorage):
 
     def _initialize_redis_state(self, state: str) -> None:
         self._redis.setnx(self._namespace("fail_counter"), 0)
+        self._redis.setnx(self._namespace("success_counter"), 0)
         self._redis.setnx(self._namespace("state"), state)
 
     @property
@@ -512,6 +556,20 @@ class CircuitRedisStorage(CircuitBreakerStorage):
         except RedisError:
             self.logger.exception("RedisError")
 
+    def increment_success_counter(self) -> None:
+        """Increase the success counter by one."""
+        try:
+            self._redis.incr(self._namespace("success_counter"))
+        except RedisError:
+            self.logger.exception("RedisError")
+
+    def reset_success_counter(self) -> None:
+        """Set the success counter to zero."""
+        try:
+            self._redis.set(self._namespace("success_counter"), 0)
+        except RedisError:
+            self.logger.exception("RedisError")
+
     @property
     def counter(self) -> int:
         """Return the current value of the failure counter."""
@@ -522,6 +580,18 @@ class CircuitRedisStorage(CircuitBreakerStorage):
             return 0
         except RedisError:
             self.logger.exception("RedisError: Assuming no errors")
+            return 0
+
+    @property
+    def success_counter(self) -> int:
+        """Return the current value of the success counter."""
+        try:
+            value = self._redis.get(self._namespace("success_counter"))
+            if value:
+                return int(value)
+            return 0
+        except RedisError:
+            self.logger.exception("RedisError: Assuming no successes")
             return 0
 
     @property
@@ -763,6 +833,8 @@ class CircuitOpenState(CircuitBreakerState):
         """Move the given circuit breaker `cb` to the "open" state."""
         super().__init__(cb, STATE_OPEN)
         if notify:
+            # Reset success counter when opening the circuit
+            self._breaker._state_storage.reset_success_counter()
             for listener in self._breaker.listeners:
                 listener.state_change(self._breaker, prev_state, self)
 
@@ -803,6 +875,8 @@ class CircuitHalfOpenState(CircuitBreakerState):
         """Move the given circuit breaker `cb` to the "half-open" state."""
         super().__init__(cb, STATE_HALF_OPEN)
         if notify:
+            # Reset success counter when entering half-open state
+            self._breaker._state_storage.reset_success_counter()
             for listener in self._breaker._listeners:
                 listener.state_change(self._breaker, prev_state, self)
 
@@ -816,8 +890,11 @@ class CircuitHalfOpenState(CircuitBreakerState):
         raise exc
 
     def on_success(self) -> None:
-        """Closes the circuit breaker."""
-        self._breaker.close()
+        """Increment success counter and close the circuit breaker if threshold is reached."""
+        self._breaker._state_storage.increment_success_counter()
+
+        if self._breaker._state_storage.success_counter >= self._breaker.success_threshold:
+            self._breaker.close()
 
 
 class CircuitBreakerError(Exception):
