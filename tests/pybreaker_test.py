@@ -745,6 +745,158 @@ class CircuitBreakerConfigurationTestCase:
         self.breaker.name = name
         assert self.breaker.name == name
 
+    def test_success_threshold_default_behavior(self):
+        """CircuitBreaker: it should maintain backward compatibility with default success_threshold=1."""
+        self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.1, **self.breaker_kwargs)
+
+        def fun():
+            return True
+
+        def err():
+            raise NotImplementedError
+
+        # Open the circuit
+        for i in range(3):
+            if i < 2:
+                with pytest.raises(NotImplementedError):
+                    self.breaker.call(err)
+            else:
+                with pytest.raises(CircuitBreakerError):
+                    self.breaker.call(err)
+
+        # Wait for timeout to enter half-open state
+        sleep(0.2)
+
+        # Single successful call should close the circuit (default behavior)
+        assert self.breaker.call(fun)
+        assert self.breaker.current_state == "closed"
+        assert self.breaker.success_counter == 0  # Should be reset when closed
+
+    def test_success_threshold_multiple_successes_required(self):
+        """CircuitBreaker: it should require multiple successful calls before closing when success_threshold > 1."""
+        self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.1, success_threshold=3, **self.breaker_kwargs)
+
+        def fun():
+            return True
+
+        def err():
+            raise NotImplementedError
+
+        # Open the circuit
+        for i in range(3):
+            if i < 2:
+                with pytest.raises(NotImplementedError):
+                    self.breaker.call(err)
+            else:
+                with pytest.raises(CircuitBreakerError):
+                    self.breaker.call(err)
+
+        # Wait for timeout to enter half-open state
+        sleep(0.2)
+
+        # First successful call should not close the circuit
+        assert self.breaker.call(fun)
+        assert self.breaker.current_state == "half-open"
+        assert self.breaker.success_counter == 1
+
+        # Second successful call should not close the circuit
+        assert self.breaker.call(fun)
+        assert self.breaker.current_state == "half-open"
+        assert self.breaker.success_counter == 2
+
+        # Third successful call should close the circuit
+        assert self.breaker.call(fun)
+        assert self.breaker.current_state == "closed"
+        assert self.breaker.success_counter == 0  # Should be reset when closed
+
+    def test_success_threshold_failure_resets_counter(self):
+        """CircuitBreaker: it should reset success counter when a failure occurs in half-open state."""
+        self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.1, success_threshold=3, **self.breaker_kwargs)
+
+        def fun():
+            return True
+
+        def err():
+            raise NotImplementedError
+
+        # Open the circuit
+        for i in range(3):
+            if i < 2:
+                with pytest.raises(NotImplementedError):
+                    self.breaker.call(err)
+            else:
+                with pytest.raises(CircuitBreakerError):
+                    self.breaker.call(err)
+
+        # Wait for timeout to enter half-open state
+        sleep(0.2)
+
+        # First successful call
+        assert self.breaker.call(fun)
+        assert self.breaker.current_state == "half-open"
+        assert self.breaker.success_counter == 1
+
+        # Second successful call
+        assert self.breaker.call(fun)
+        assert self.breaker.current_state == "half-open"
+        assert self.breaker.success_counter == 2
+
+        # Failure should reset success counter and open circuit
+        with pytest.raises(CircuitBreakerError):
+            self.breaker.call(err)
+        assert self.breaker.current_state == "open"
+        assert self.breaker.success_counter == 0  # Should be reset when opened
+
+    def test_success_threshold_property(self):
+        """CircuitBreaker: it should support getting and setting success_threshold."""
+        self.breaker = CircuitBreaker(success_threshold=5)
+        assert self.breaker.success_threshold == 5
+
+        self.breaker.success_threshold = 10
+        assert self.breaker.success_threshold == 10
+
+    def test_success_threshold_redis_storage(self):
+        """CircuitBreaker: it should work correctly with Redis storage."""
+        # This test requires Redis to be running
+        try:
+            import redis
+
+            redis_client = redis.Redis()
+            redis_client.ping()
+        except (ImportError, redis.ConnectionError):
+            pytest.skip("Redis not available")
+
+        storage = CircuitRedisStorage(STATE_CLOSED, redis_client)
+        self.breaker = CircuitBreaker(fail_max=3, reset_timeout=0.1, success_threshold=2, state_storage=storage)
+
+        def fun():
+            return True
+
+        def err():
+            raise NotImplementedError
+
+        # Open the circuit
+        for i in range(3):
+            if i < 2:
+                with pytest.raises(NotImplementedError):
+                    self.breaker.call(err)
+            else:
+                with pytest.raises(CircuitBreakerError):
+                    self.breaker.call(err)
+
+        # Wait for timeout to enter half-open state
+        sleep(0.2)
+
+        # First successful call should not close the circuit
+        assert self.breaker.call(fun)
+        assert self.breaker.current_state == "half-open"
+        assert self.breaker.success_counter == 1
+
+        # Second successful call should close the circuit
+        assert self.breaker.call(fun)
+        assert self.breaker.current_state == "closed"
+        assert self.breaker.success_counter == 0
+
 
 class CircuitBreakerTestCase(
     testing.AsyncTestCase,
@@ -824,9 +976,10 @@ class CircuitBreakerRedisTestCase(unittest.TestCase, CircuitBreakerStorageBasedT
         with pytest.raises(NotImplementedError):
             self.breaker.call(func)
         keys = self.redis.keys()
-        assert len(keys) == 2
+        assert len(keys) == 3  # fail_counter, success_counter, state
         assert keys[0].decode("utf-8").startswith("my_app")
         assert keys[1].decode("utf-8").startswith("my_app")
+        assert keys[2].decode("utf-8").startswith("my_app")
 
     def test_fallback_state(self):
         logger = logging.getLogger("pybreaker")
