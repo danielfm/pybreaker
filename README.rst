@@ -65,6 +65,14 @@ integration point you want to protect against:
 ``CircuitBreaker`` instances should live globally inside the application scope,
 e.g., live across requests.
 
+You can also configure a success threshold to require multiple successful
+requests before closing the circuit breaker:
+
+.. code:: python
+
+    # Require 3 successful requests before closing
+    db_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=60, success_threshold=3)
+
 .. note::
 
   Integration points to external services (i.e. databases, queues, etc) are
@@ -295,9 +303,16 @@ change its current state:
     # Get the current number of consecutive failures
     print(db_breaker.fail_counter)
 
+    # Get the current number of consecutive successes
+    print(db_breaker.success_counter)
+
     # Get/set the maximum number of consecutive failures
     print(db_breaker.fail_max)
     db_breaker.fail_max = 10
+
+    # Get/set the success threshold
+    print(db_breaker.success_threshold)
+    db_breaker.success_threshold = 3
 
     # Get/set the current reset timeout period (in seconds)
     print db_breaker.reset_timeout
