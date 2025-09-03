@@ -845,7 +845,11 @@ class CircuitOpenState(CircuitBreakerState):
         """
         timeout = timedelta(seconds=self._breaker.reset_timeout)
         opened_at = self._breaker._state_storage.opened_at
-        if opened_at and datetime.now(UTC) < opened_at + timeout:
+        # Ensure opened_at is timezone-aware in UTC
+        if opened_at and opened_at.tzinfo is None:
+            opened_at = opened_at.replace(tzinfo=timezone.utc)
+            # Always compare two aware UTC datetimes
+        if opened_at and datetime.now(timezone.utc) < opened_at + timeout:
             error_msg = "Timeout not elapsed yet, circuit breaker still open"
             raise CircuitBreakerError(error_msg)
         self._breaker.half_open()
