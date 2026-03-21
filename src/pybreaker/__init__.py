@@ -7,8 +7,10 @@ book at https://pragprog.com/titles/mnee2/release-it-second-edition/
 
 from __future__ import annotations
 
+import asyncio
 import calendar
 import contextlib
+import inspect
 import logging
 import sys
 import threading
@@ -98,8 +100,16 @@ class CircuitBreaker:
         state_storage: CircuitBreakerStorage | None = None,
         name: str | None = None,
         throw_new_error_on_trip: bool = True,
+        fallback: Callable[..., Any] | None = None,
     ) -> None:
-        """Create a new circuit breaker with the given parameters."""
+        """Create a new circuit breaker with the given parameters.
+
+        If ``fallback`` is set, it is invoked (with the same ``*args`` and
+        ``**kwargs`` as the guarded call) when the circuit is **open** and the
+        reset timeout has not yet elapsed, instead of raising
+        ``CircuitBreakerError``. The primary callable is not run. For
+        :meth:`acall`, if ``fallback`` returns an awaitable, it is awaited.
+        """
         self._lock = threading.RLock()
         self._state_storage = state_storage or CircuitMemoryStorage(STATE_CLOSED)
         self._state = self._create_new_state(self.current_state)
@@ -113,6 +123,22 @@ class CircuitBreaker:
         self._name = name
 
         self._throw_new_error_on_trip = throw_new_error_on_trip
+        self._fallback = fallback
+        self._async_lock: asyncio.Lock | None = None
+
+    def _ensure_async_lock(self) -> asyncio.Lock:
+        """Lazily create the asyncio lock used by `acall` (thread-safe).
+
+        The lock is created once per breaker. On Python 3.10+ this is safe across
+        sequential ``asyncio.run()`` calls (new event loop each time). On 3.9,
+        reuse across different loops is theoretically fragile; prefer one loop
+        per long-lived breaker until 3.9 support is dropped.
+        """
+        if self._async_lock is None:
+            with self._lock:
+                if self._async_lock is None:
+                    self._async_lock = asyncio.Lock()
+        return self._async_lock
 
     @property
     def fail_counter(self) -> int:
@@ -243,6 +269,28 @@ class CircuitBreaker:
                     return False
         return True
 
+    def _open_circuit_fallback_or_raise(self, *args: Any, **kwargs: Any) -> Any:
+        """When open and timeout not elapsed: run ``fallback`` or raise ``CircuitBreakerError``."""
+        if self._fallback is None:
+            error_msg = "Timeout not elapsed yet, circuit breaker still open"
+            raise CircuitBreakerError(error_msg)
+        return self._fallback(*args, **kwargs)
+
+    async def _open_circuit_fallback_or_raise_async(self, *args: Any, **kwargs: Any) -> Any:
+        """Async variant of :meth:`_open_circuit_fallback_or_raise`."""
+        if self._fallback is None:
+            error_msg = "Timeout not elapsed yet, circuit breaker still open"
+            raise CircuitBreakerError(error_msg)
+        ret = self._fallback(*args, **kwargs)
+        if inspect.isawaitable(ret):
+            return await ret
+        return ret
+
+    @property
+    def fallback(self) -> Callable[..., Any] | None:
+        """Optional callable used when the circuit is open and the reset timeout has not elapsed."""
+        return self._fallback
+
     def call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         """Call `func` with the given `args` and `kwargs` according to the rules
         implemented by the current state of this circuit breaker.
@@ -262,6 +310,21 @@ class CircuitBreaker:
             yield
 
         yield from self.call(_wrapper)
+
+    async def acall(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Call async (or awaitable-returning) ``func`` under the same state rules as
+        :meth:`call`, using :class:`asyncio.Lock` for mutual exclusion between
+        concurrent ``acall`` invocations.
+
+        ``func`` must be an ``async def`` or return an awaitable when invoked.
+        Sync generators, async generators, and Tornado coroutines are not
+        supported; use :meth:`call` / :meth:`call_async` instead.
+
+        Mixing :meth:`call` and ``acall`` on one instance is not guaranteed to
+        serialize; prefer one style per breaker where possible.
+        """
+        async with self._ensure_async_lock():
+            return await self.state.acall(func, *args, **kwargs)
 
     def call_async(self, func, *args, **kwargs):  # type: ignore[no-untyped-def]
         """Call async `func` with the given `args` and `kwargs` according to the rules
@@ -304,16 +367,32 @@ class CircuitBreaker:
         """Return a wrapper that calls the function `func` according to the rules
         implemented by the current state of this circuit breaker.
 
-        Optionally takes the keyword argument `__pybreaker_call_coroutine`,
-        which will will call `func` as a Tornado co-routine.
+        Optional keyword arguments (mutually exclusive):
+
+        * ``__pybreaker_call_async=True`` — wrap for Tornado (requires tornado).
+        * ``__pybreaker_call_acall=True`` — wrap as an ``async def`` that uses
+          :meth:`acall` (stdlib asyncio).
         """
         call_async = call_kwargs.pop("__pybreaker_call_async", False)
+        call_acall = call_kwargs.pop("__pybreaker_call_acall", False)
+
+        if call_async and call_acall:
+            msg = "Cannot set both __pybreaker_call_async and __pybreaker_call_acall"
+            raise ValueError(msg)
 
         if call_async and not HAS_TORNADO_SUPPORT:
             message = "No module named tornado"
             raise ImportError(message)
 
         def _outer_wrapper(func):  # type: ignore[no-untyped-def]
+            if call_acall:
+
+                @wraps(func)
+                async def _inner_acall(*args, **kwargs):  # type: ignore[no-untyped-def]
+                    return await self.acall(func, *args, **kwargs)
+
+                return _inner_acall
+
             @wraps(func)
             def _inner_wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
                 if call_async:
@@ -727,6 +806,30 @@ class CircuitBreakerState:
             self._handle_success()
         return ret
 
+    async def acall(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Async counterpart to :meth:`call` for ``async def`` and awaitable-returning callables."""
+        ret: Any = None
+
+        self.before_call(func, *args, **kwargs)
+        for listener in self._breaker.listeners:
+            listener.before_call(self._breaker, func, *args, **kwargs)
+
+        try:
+            ret = func(*args, **kwargs)
+            if inspect.isawaitable(ret):
+                ret = await ret
+        except BaseException as e:
+            self._handle_error(e)
+        else:
+            if isinstance(ret, types.GeneratorType):
+                msg = "acall does not support synchronous generators; use call() instead"
+                raise TypeError(msg)
+            if inspect.isasyncgen(ret):
+                msg = "acall does not support async generators; use an async function that returns a value"
+                raise TypeError(msg)
+            self._handle_success()
+        return ret
+
     def call_async(self, func, *args: Any, **kwargs: Any):  # type: ignore[no-untyped-def]
         """Call async `func` with the given `args` and `kwargs`, and updates the
         circuit breaker state according to the result.
@@ -838,24 +941,32 @@ class CircuitOpenState(CircuitBreakerState):
             for listener in self._breaker.listeners:
                 listener.state_change(self._breaker, prev_state, self)
 
-    def before_call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    def before_call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> Any:
         """After the timeout elapses, move the circuit breaker to the "half-open"
         state; otherwise, raises ``CircuitBreakerError`` without any attempt
-        to execute the real operation.
+        to execute the real operation (unless a ``fallback`` is configured).
         """
         timeout = timedelta(seconds=self._breaker.reset_timeout)
         opened_at = self._breaker._state_storage.opened_at
         if opened_at and datetime.now(UTC) < opened_at + timeout:
-            error_msg = "Timeout not elapsed yet, circuit breaker still open"
-            raise CircuitBreakerError(error_msg)
+            return self._breaker._open_circuit_fallback_or_raise(*args, **kwargs)
         self._breaker.half_open()
         return self._breaker.call(func, *args, **kwargs)
 
-    def call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    def call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> Any:
         """Delegate the call to before_call, if the time out is not elapsed it will throw an exception, otherwise we get
         the results from the call performed after the state is switch to half-open.
         """
         return self.before_call(func, *args, **kwargs)
+
+    async def acall(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """After timeout, move to half-open and run the guarded operation via async path."""
+        timeout = timedelta(seconds=self._breaker.reset_timeout)
+        opened_at = self._breaker._state_storage.opened_at
+        if opened_at and datetime.now(UTC) < opened_at + timeout:
+            return await self._breaker._open_circuit_fallback_or_raise_async(*args, **kwargs)
+        self._breaker.half_open()
+        return await self._breaker.state.acall(func, *args, **kwargs)
 
 
 class CircuitHalfOpenState(CircuitBreakerState):
