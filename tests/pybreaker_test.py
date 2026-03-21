@@ -734,6 +734,44 @@ class CircuitBreakerConfigurationTestCase:
 
             self.breaker(func, __pybreaker_call_async=True)
 
+    def test_decorator_call_acall(self):
+        """CircuitBreaker: decorator with __pybreaker_call_acall wraps async functions."""
+
+        @self.breaker(__pybreaker_call_acall=True)
+        async def suc(value):
+            """Docstring"""
+            return value
+
+        @self.breaker(__pybreaker_call_acall=True)
+        async def err(value):
+            """Docstring"""
+            raise NotImplementedError
+
+        assert suc.__doc__ == "Docstring"
+        assert err.__doc__ == "Docstring"
+        assert suc.__name__ == "suc"
+        assert err.__name__ == "err"
+
+        async def run():
+            with pytest.raises(NotImplementedError):
+                await err(True)
+            assert self.breaker.fail_counter == 1
+            assert await suc(True)
+            assert self.breaker.fail_counter == 0
+
+        asyncio.run(run())
+
+    def test_partial_breaker_call_acall(self):
+        async def func(x):
+            return x + 1
+
+        wrapped = self.breaker(func, __pybreaker_call_acall=True)
+        assert asyncio.run(wrapped(1)) == 2
+
+    def test_both_pybreaker_async_flags_raises(self):
+        with pytest.raises(ValueError, match="Cannot set both"):
+            self.breaker(__pybreaker_call_async=True, __pybreaker_call_acall=True)
+
     def test_name(self):
         """CircuitBreaker: it should allow an optional name to be set and
         retrieved.

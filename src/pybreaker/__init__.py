@@ -336,16 +336,32 @@ class CircuitBreaker:
         """Return a wrapper that calls the function `func` according to the rules
         implemented by the current state of this circuit breaker.
 
-        Optionally takes the keyword argument `__pybreaker_call_coroutine`,
-        which will will call `func` as a Tornado co-routine.
+        Optional keyword arguments (mutually exclusive):
+
+        * ``__pybreaker_call_async=True`` — wrap for Tornado (requires tornado).
+        * ``__pybreaker_call_acall=True`` — wrap as an ``async def`` that uses
+          :meth:`acall` (stdlib asyncio).
         """
         call_async = call_kwargs.pop("__pybreaker_call_async", False)
+        call_acall = call_kwargs.pop("__pybreaker_call_acall", False)
+
+        if call_async and call_acall:
+            msg = "Cannot set both __pybreaker_call_async and __pybreaker_call_acall"
+            raise ValueError(msg)
 
         if call_async and not HAS_TORNADO_SUPPORT:
             message = "No module named tornado"
             raise ImportError(message)
 
         def _outer_wrapper(func):  # type: ignore[no-untyped-def]
+            if call_acall:
+
+                @wraps(func)
+                async def _inner_acall(*args, **kwargs):  # type: ignore[no-untyped-def]
+                    return await self.acall(func, *args, **kwargs)
+
+                return _inner_acall
+
             @wraps(func)
             def _inner_wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
                 if call_async:
