@@ -23,6 +23,7 @@ Features
 * Optional redis backing
 * Optional support for asynchronous Tornado calls
 * Optional ``CircuitBreaker.acall`` for asyncio (stdlib)
+* Optional open-circuit ``fallback`` callable
 
 
 Requirements
@@ -280,6 +281,34 @@ does not require Tornado. Do not mix ``__pybreaker_call_acall`` with
         ...
 
     data = await db_breaker.acall(async_fetch, "https://example.com")
+
+
+Open-circuit fallback (optional)
+````````````````````````````````
+
+If you pass ``fallback`` when creating the breaker, that callable is used when
+the circuit is **open** and the reset timeout has **not** yet elapsed (the
+short-circuit case). It receives the same ``*args`` and ``**kwargs`` as the
+guarded call; the primary function is not executed. This matches the usual
+Hystrix-style behavior. ``throw_new_error_on_trip`` only affects what happens
+when the breaker **trips** after failures; it does not disable the fallback.
+
+.. code:: python
+
+    def stale_cache(*args, **kwargs):
+        return load_from_local_cache(*args, **kwargs)
+
+    db_breaker = CircuitBreaker(
+        fail_max=5,
+        reset_timeout=60,
+        fallback=stale_cache,
+    )
+
+    # When open and still within reset_timeout, returns fallback result instead of
+    # raising ``CircuitBreakerError``.
+
+For ``CircuitBreaker.acall``, an ``async def`` fallback works: if invoking
+``fallback`` returns an awaitable, it is awaited.
 
 
 Excluding Exceptions

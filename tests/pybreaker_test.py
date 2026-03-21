@@ -1616,5 +1616,136 @@ class CircuitBreakerAsyncioTestCase(unittest.TestCase):
         asyncio.run(run())
 
 
+class CircuitBreakerFallbackTestCase(unittest.TestCase):
+    """Open-circuit short-circuit: optional ``fallback`` (Hystrix-style)."""
+
+    def test_call_open_returns_fallback_value(self):
+        def primary():
+            raise AssertionError("primary must not run when open")
+
+        breaker = CircuitBreaker(
+            fail_max=1,
+            reset_timeout=300,
+            throw_new_error_on_trip=False,
+            fallback=lambda x: f"fb-{x}",
+        )
+
+        def err():
+            raise RuntimeError("trip")
+
+        with pytest.raises(RuntimeError):
+            breaker.call(err)
+        assert breaker.current_state == "open"
+
+        assert breaker.call(primary, 42) == "fb-42"
+
+    def test_call_open_without_fallback_raises(self):
+        breaker = CircuitBreaker(fail_max=1, reset_timeout=300, throw_new_error_on_trip=False)
+
+        def err():
+            raise RuntimeError("trip")
+
+        with pytest.raises(RuntimeError):
+            breaker.call(err)
+
+        def primary():
+            return True
+
+        with pytest.raises(CircuitBreakerError, match="Timeout not elapsed"):
+            breaker.call(primary)
+
+    def test_fallback_receives_kwargs(self):
+        breaker = CircuitBreaker(
+            fail_max=1,
+            reset_timeout=300,
+            throw_new_error_on_trip=False,
+            fallback=lambda **kw: kw["a"] + kw["b"],
+        )
+
+        def err():
+            raise RuntimeError("trip")
+
+        with pytest.raises(RuntimeError):
+            breaker.call(err)
+
+        def primary():
+            return None
+
+        assert breaker.call(primary, a=1, b=2) == 3
+
+    def test_fallback_property(self):
+        def fb():
+            return 1
+
+        b = CircuitBreaker(fallback=fb)
+        assert b.fallback is fb
+        b2 = CircuitBreaker()
+        assert b2.fallback is None
+
+    def test_acall_open_sync_fallback(self):
+        breaker = CircuitBreaker(
+            fail_max=1,
+            reset_timeout=300,
+            throw_new_error_on_trip=False,
+            fallback=lambda x: x * 10,
+        )
+
+        def err():
+            raise ValueError("trip")
+
+        with pytest.raises(ValueError, match="trip"):
+            breaker.call(err)
+
+        async def primary():
+            raise AssertionError("primary must not run")
+
+        assert asyncio.run(breaker.acall(primary, 7)) == 70
+
+    def test_acall_open_async_fallback(self):
+        async def async_fb(n):
+            return n * 2
+
+        breaker = CircuitBreaker(
+            fail_max=1,
+            reset_timeout=300,
+            throw_new_error_on_trip=False,
+            fallback=async_fb,
+        )
+
+        def err():
+            raise ValueError("trip")
+
+        with pytest.raises(ValueError):
+            breaker.call(err)
+
+        async def primary():
+            raise AssertionError("primary must not run")
+
+        assert asyncio.run(breaker.acall(primary, 11)) == 22
+
+    def test_fallback_that_raises_propagates(self):
+        def bad_fallback():
+            raise ConnectionError("fallback failed")
+
+        breaker = CircuitBreaker(
+            fail_max=1,
+            reset_timeout=300,
+            throw_new_error_on_trip=False,
+            fallback=bad_fallback,
+        )
+
+        def err():
+            raise RuntimeError("trip")
+
+        with pytest.raises(RuntimeError):
+            breaker.call(err)
+        assert breaker.current_state == "open"
+
+        with pytest.raises(ConnectionError, match="fallback failed"):
+            breaker.call(lambda: None)
+        assert breaker.current_state == "open"
+        assert breaker.fail_counter == 1
+
+
 if __name__ == "__main__":
     unittest.main()

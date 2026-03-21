@@ -100,8 +100,16 @@ class CircuitBreaker:
         state_storage: CircuitBreakerStorage | None = None,
         name: str | None = None,
         throw_new_error_on_trip: bool = True,
+        fallback: Callable[..., Any] | None = None,
     ) -> None:
-        """Create a new circuit breaker with the given parameters."""
+        """Create a new circuit breaker with the given parameters.
+
+        If ``fallback`` is set, it is invoked (with the same ``*args`` and
+        ``**kwargs`` as the guarded call) when the circuit is **open** and the
+        reset timeout has not yet elapsed, instead of raising
+        ``CircuitBreakerError``. The primary callable is not run. For
+        :meth:`acall`, if ``fallback`` returns an awaitable, it is awaited.
+        """
         self._lock = threading.RLock()
         self._state_storage = state_storage or CircuitMemoryStorage(STATE_CLOSED)
         self._state = self._create_new_state(self.current_state)
@@ -115,6 +123,7 @@ class CircuitBreaker:
         self._name = name
 
         self._throw_new_error_on_trip = throw_new_error_on_trip
+        self._fallback = fallback
         self._async_lock: asyncio.Lock | None = None
 
     def _ensure_async_lock(self) -> asyncio.Lock:
@@ -259,6 +268,28 @@ class CircuitBreaker:
                 if exclusion(exception):
                     return False
         return True
+
+    def _open_circuit_fallback_or_raise(self, *args: Any, **kwargs: Any) -> Any:
+        """When open and timeout not elapsed: run ``fallback`` or raise ``CircuitBreakerError``."""
+        if self._fallback is None:
+            error_msg = "Timeout not elapsed yet, circuit breaker still open"
+            raise CircuitBreakerError(error_msg)
+        return self._fallback(*args, **kwargs)
+
+    async def _open_circuit_fallback_or_raise_async(self, *args: Any, **kwargs: Any) -> Any:
+        """Async variant of :meth:`_open_circuit_fallback_or_raise`."""
+        if self._fallback is None:
+            error_msg = "Timeout not elapsed yet, circuit breaker still open"
+            raise CircuitBreakerError(error_msg)
+        ret = self._fallback(*args, **kwargs)
+        if inspect.isawaitable(ret):
+            return await ret
+        return ret
+
+    @property
+    def fallback(self) -> Callable[..., Any] | None:
+        """Optional callable used when the circuit is open and the reset timeout has not elapsed."""
+        return self._fallback
 
     def call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         """Call `func` with the given `args` and `kwargs` according to the rules
@@ -910,20 +941,19 @@ class CircuitOpenState(CircuitBreakerState):
             for listener in self._breaker.listeners:
                 listener.state_change(self._breaker, prev_state, self)
 
-    def before_call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    def before_call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> Any:
         """After the timeout elapses, move the circuit breaker to the "half-open"
         state; otherwise, raises ``CircuitBreakerError`` without any attempt
-        to execute the real operation.
+        to execute the real operation (unless a ``fallback`` is configured).
         """
         timeout = timedelta(seconds=self._breaker.reset_timeout)
         opened_at = self._breaker._state_storage.opened_at
         if opened_at and datetime.now(UTC) < opened_at + timeout:
-            error_msg = "Timeout not elapsed yet, circuit breaker still open"
-            raise CircuitBreakerError(error_msg)
+            return self._breaker._open_circuit_fallback_or_raise(*args, **kwargs)
         self._breaker.half_open()
         return self._breaker.call(func, *args, **kwargs)
 
-    def call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    def call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> Any:
         """Delegate the call to before_call, if the time out is not elapsed it will throw an exception, otherwise we get
         the results from the call performed after the state is switch to half-open.
         """
@@ -934,8 +964,7 @@ class CircuitOpenState(CircuitBreakerState):
         timeout = timedelta(seconds=self._breaker.reset_timeout)
         opened_at = self._breaker._state_storage.opened_at
         if opened_at and datetime.now(UTC) < opened_at + timeout:
-            error_msg = "Timeout not elapsed yet, circuit breaker still open"
-            raise CircuitBreakerError(error_msg)
+            return await self._breaker._open_circuit_fallback_or_raise_async(*args, **kwargs)
         self._breaker.half_open()
         return await self._breaker.state.acall(func, *args, **kwargs)
 

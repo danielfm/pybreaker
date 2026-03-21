@@ -8,3 +8,10 @@ CircuitBreaker(
     exclude=[lambda e: isinstance(e, RuntimeError)],
     state_storage=CircuitMemoryStorage(STATE_CLOSED),
 )
+
+CircuitBreaker(
+    fail_max=1,
+    reset_timeout=1000,
+    fallback=lambda *args, **kwargs: None,
+    state_storage=CircuitMemoryStorage(STATE_CLOSED),
+)
