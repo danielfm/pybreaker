@@ -315,7 +315,7 @@ change its current state:
     db_breaker.success_threshold = 3
 
     # Get/set the current reset timeout period (in seconds)
-    print db_breaker.reset_timeout
+    print(db_breaker.reset_timeout)
     db_breaker.reset_timeout = 60
 
     # Get the current state, i.e., 'open', 'half-open', 'closed'
