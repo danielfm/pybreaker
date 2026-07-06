@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 1.5.0 (unreleased)
+
+* Add ``CircuitBreaker.acall`` for native asyncio callables.
+
 Version 1.4.0 (July 6, 2025)
 
 * Add success_threshold parameter (Thanks @sideshowbandana)
