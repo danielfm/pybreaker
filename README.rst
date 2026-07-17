@@ -22,6 +22,7 @@ Features
 * Thread-safe
 * Optional redis backing
 * Optional support for asynchronous Tornado calls
+* Optional ``CircuitBreaker.acall`` for asyncio (stdlib)
 
 
 Requirements
@@ -258,6 +259,27 @@ Or if you don't want to use the decorator syntax:
         pass
 
     updated_customer = db_breaker.call_async(async_update, my_customer)
+
+
+Native asyncio (stdlib)
+```````````````````````
+
+For ``async def`` functions, use ``CircuitBreaker.acall`` or the decorator
+with ``__pybreaker_call_acall=True``. This path uses ``asyncio.Lock`` and
+does not require Tornado. Do not mix ``__pybreaker_call_acall`` with
+``__pybreaker_call_async`` on the same decorator.
+
+.. code:: python
+
+    @db_breaker(__pybreaker_call_acall=True)
+    async def async_fetch(url: str) -> bytes:
+        ...
+
+    # or without decorator syntax:
+    async def async_fetch(url: str) -> bytes:
+        ...
+
+    data = await db_breaker.acall(async_fetch, "https://example.com")
 
 
 Excluding Exceptions
