@@ -1178,7 +1178,7 @@ class CircuitBreakerRedisConcurrencyTestCase(unittest.TestCase):
         self.redis = fakeredis.FakeStrictRedis()
         self.breaker_kwargs = {
             "fail_max": 3000,
-            "reset_timeout": 1,
+            "reset_timeout": 20,
             "state_storage": CircuitRedisStorage("closed", self.redis),
         }
         self.breaker = CircuitBreaker(**self.breaker_kwargs)
