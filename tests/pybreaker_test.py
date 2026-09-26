@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from contextlib import contextmanager
 from datetime import datetime
@@ -733,6 +734,44 @@ class CircuitBreakerConfigurationTestCase:
 
             self.breaker(func, __pybreaker_call_async=True)
 
+    def test_decorator_call_acall(self):
+        """CircuitBreaker: decorator with __pybreaker_call_acall wraps async functions."""
+
+        @self.breaker(__pybreaker_call_acall=True)
+        async def suc(value):
+            """Docstring"""
+            return value
+
+        @self.breaker(__pybreaker_call_acall=True)
+        async def err(value):
+            """Docstring"""
+            raise NotImplementedError
+
+        assert suc.__doc__ == "Docstring"
+        assert err.__doc__ == "Docstring"
+        assert suc.__name__ == "suc"
+        assert err.__name__ == "err"
+
+        async def run():
+            with pytest.raises(NotImplementedError):
+                await err(True)
+            assert self.breaker.fail_counter == 1
+            assert await suc(True)
+            assert self.breaker.fail_counter == 0
+
+        asyncio.run(run())
+
+    def test_partial_breaker_call_acall(self):
+        async def func(x):
+            return x + 1
+
+        wrapped = self.breaker(func, __pybreaker_call_acall=True)
+        assert asyncio.run(wrapped(1)) == 2
+
+    def test_both_pybreaker_async_flags_raises(self):
+        with pytest.raises(ValueError, match="Cannot set both"):
+            self.breaker(__pybreaker_call_async=True, __pybreaker_call_acall=True)
+
     def test_name(self):
         """CircuitBreaker: it should allow an optional name to be set and
         retrieved.
@@ -1350,6 +1389,231 @@ class CircuitBreakerContextManagerTestCase(unittest.TestCase):
         mock_fn.assert_called_once()
         assert breaker.fail_counter == 0
         assert breaker.current_state == "closed"
+
+
+class CircuitBreakerAsyncioTestCase(unittest.TestCase):
+    """Tests for native asyncio :meth:`CircuitBreaker.acall` (PR 1: core API only)."""
+
+    def test_acall_success_closed(self):
+        breaker = CircuitBreaker()
+
+        async def ok():
+            return 42
+
+        assert asyncio.run(breaker.acall(ok)) == 42
+        assert breaker.fail_counter == 0
+        assert breaker.current_state == "closed"
+
+    def test_acall_with_args(self):
+        breaker = CircuitBreaker()
+
+        async def add(a, b):
+            return a + b
+
+        assert asyncio.run(breaker.acall(add, 40, 2)) == 42
+
+    def test_acall_with_kwargs(self):
+        breaker = CircuitBreaker()
+
+        async def merge(**kwargs):
+            return kwargs
+
+        assert asyncio.run(breaker.acall(merge, a=1, b=2)) == {"a": 1, "b": 2}
+
+    def test_acall_listener_callbacks(self):
+        breaker = CircuitBreaker()
+
+        class RecordingListener(CircuitBreakerListener):
+            def __init__(self) -> None:
+                self.before = 0
+                self.successes = 0
+                self.failures = 0
+
+            def before_call(self, cb, func, *args, **kwargs):
+                self.before += 1
+
+            def success(self, cb):
+                self.successes += 1
+
+            def failure(self, cb, exc):
+                self.failures += 1
+
+        listener = RecordingListener()
+        breaker.add_listener(listener)
+
+        async def ok():
+            return 1
+
+        async def bad():
+            raise ValueError("x")
+
+        async def run():
+            assert await breaker.acall(ok) == 1
+            with pytest.raises(ValueError):
+                await breaker.acall(bad)
+
+        asyncio.run(run())
+        assert listener.before == 2
+        assert listener.successes == 1
+        assert listener.failures == 1
+
+    def test_acall_failures_open_circuit(self):
+        breaker = CircuitBreaker(fail_max=3)
+
+        async def err():
+            raise NotImplementedError
+
+        async def run_fails():
+            with pytest.raises(NotImplementedError):
+                await breaker.acall(err)
+            with pytest.raises(NotImplementedError):
+                await breaker.acall(err)
+            with pytest.raises(CircuitBreakerError):
+                await breaker.acall(err)
+
+        asyncio.run(run_fails())
+        assert breaker.fail_counter == 3
+        assert breaker.current_state == "open"
+
+    def test_acall_throw_new_error_on_trip_false(self):
+        breaker = CircuitBreaker(fail_max=3, throw_new_error_on_trip=False)
+
+        async def err():
+            raise NotImplementedError
+
+        async def run_all():
+            with pytest.raises(NotImplementedError):
+                await breaker.acall(err)
+            with pytest.raises(NotImplementedError):
+                await breaker.acall(err)
+            with pytest.raises(NotImplementedError):
+                await breaker.acall(err)
+
+        asyncio.run(run_all())
+        assert breaker.fail_counter == 3
+        assert breaker.current_state == "open"
+
+    def test_acall_open_raises_until_timeout(self):
+        # fail_max=1 trips on first failure with CircuitBreakerError by default;
+        # use throw_new_error_on_trip=False so the original error propagates once.
+        breaker = CircuitBreaker(fail_max=1, reset_timeout=60, throw_new_error_on_trip=False)
+
+        async def err():
+            raise RuntimeError("boom")
+
+        async def trip():
+            with pytest.raises(RuntimeError, match="boom"):
+                await breaker.acall(err)
+
+        asyncio.run(trip())
+        assert breaker.current_state == "open"
+
+        async def blocked():
+            with pytest.raises(CircuitBreakerError, match="Timeout not elapsed"):
+                await breaker.acall(err)
+
+        asyncio.run(blocked())
+
+    def test_acall_recovery_after_reset_timeout(self):
+        breaker = CircuitBreaker(fail_max=1, reset_timeout=0.01, throw_new_error_on_trip=False)
+
+        async def err():
+            raise NotImplementedError
+
+        async def ok():
+            return True
+
+        async def run():
+            with pytest.raises(NotImplementedError):
+                await breaker.acall(err)
+            assert breaker.current_state == "open"
+            await asyncio.sleep(0.02)
+            assert await breaker.acall(ok)
+            assert breaker.current_state == "closed"
+            assert breaker.fail_counter == 0
+
+        asyncio.run(run())
+
+    def test_acall_excluded_exceptions(self):
+        breaker = CircuitBreaker(exclude=[LookupError])
+
+        async def err_sys():
+            raise NotImplementedError
+
+        async def err_biz():
+            raise LookupError
+
+        async def run():
+            with pytest.raises(NotImplementedError):
+                await breaker.acall(err_sys)
+            assert breaker.fail_counter == 1
+            with pytest.raises(LookupError):
+                await breaker.acall(err_biz)
+            assert breaker.fail_counter == 0
+
+        asyncio.run(run())
+
+    def test_acall_rejects_sync_generator(self):
+        breaker = CircuitBreaker()
+
+        def gen():
+            yield 1
+
+        async def run():
+            with pytest.raises(TypeError, match="acall does not support"):
+                await breaker.acall(gen)
+
+        asyncio.run(run())
+        assert breaker.fail_counter == 0
+        assert breaker.current_state == "closed"
+
+    def test_acall_rejects_async_generator(self):
+        breaker = CircuitBreaker()
+
+        async def agen():
+            yield 1
+
+        async def run():
+            with pytest.raises(TypeError, match="async generators"):
+                await breaker.acall(agen)
+
+        asyncio.run(run())
+        assert breaker.fail_counter == 0
+        assert breaker.current_state == "closed"
+
+    def test_acall_half_open_failure_raises_circuit_breaker_error(self):
+        """Default throw_new_error_on_trip: half-open trial failure surfaces CircuitBreakerError."""
+        breaker = CircuitBreaker(fail_max=1, reset_timeout=0.01)
+
+        async def err():
+            raise NotImplementedError
+
+        async def run():
+            with pytest.raises(CircuitBreakerError, match="Failures threshold"):
+                await breaker.acall(err)
+            await asyncio.sleep(0.02)
+            with pytest.raises(CircuitBreakerError, match="Trial call failed"):
+                await breaker.acall(err)
+            assert breaker.current_state == "open"
+
+        asyncio.run(run())
+
+    def test_acall_half_open_failure_reopens_with_original_error(self):
+        """With throw_new_error_on_trip=False, half-open trial failure re-raises the call error."""
+        breaker = CircuitBreaker(fail_max=1, reset_timeout=0.01, throw_new_error_on_trip=False)
+
+        async def err():
+            raise NotImplementedError
+
+        async def run():
+            with pytest.raises(NotImplementedError):
+                await breaker.acall(err)
+            await asyncio.sleep(0.02)
+            with pytest.raises(NotImplementedError):
+                await breaker.acall(err)
+            assert breaker.current_state == "open"
+
+        asyncio.run(run())
 
 
 if __name__ == "__main__":

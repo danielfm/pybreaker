@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 1.5.0 (unreleased)
+
+* Add ``CircuitBreaker.acall`` for native asyncio callables.
+* Document asyncio usage in README; add ``__pybreaker_call_acall`` decorator flag.
+
 Version 1.4.0 (July 6, 2025)
 
 * Add success_threshold parameter (Thanks @sideshowbandana)
