@@ -23,4 +23,5 @@ dist/
 
 # VirtualEnv
 /venv/
+.venv-ci/
 *~
