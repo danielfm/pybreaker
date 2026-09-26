@@ -366,6 +366,8 @@ class CircuitBreakerStorage:
     def __init__(self, name: str) -> None:
         """Create a new instance identified by `name`."""
         self._name = name
+        # Store the last exception that occurred on CircuitBreakerState.call
+        self._exception: BaseException | None = None
 
     @property
     def name(self) -> str:
@@ -688,6 +690,7 @@ class CircuitBreakerState:
 
     def _handle_error(self, exc: BaseException, reraise: bool = True) -> None:
         """Handle a failed call to the guarded operation."""
+        self._breaker._state_storage._exception = exc
         if self._breaker.is_system_error(exc):
             self._breaker._inc_counter()
             for listener in self._breaker.listeners:
@@ -847,6 +850,11 @@ class CircuitOpenState(CircuitBreakerState):
         opened_at = self._breaker._state_storage.opened_at
         if opened_at and datetime.now(UTC) < opened_at + timeout:
             error_msg = "Timeout not elapsed yet, circuit breaker still open"
+            exc = self._breaker._state_storage._exception
+
+            if exc:
+                msg = "{}. Original exception that opened the circuit {}"
+                raise CircuitBreakerError(msg.format(error_msg, exc.__str__())) from exc
             raise CircuitBreakerError(error_msg)
         self._breaker.half_open()
         return self._breaker.call(func, *args, **kwargs)
