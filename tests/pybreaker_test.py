@@ -1352,5 +1352,61 @@ class CircuitBreakerContextManagerTestCase(unittest.TestCase):
         assert breaker.current_state == "closed"
 
 
+@pytest.mark.parametrize("redis_backed", (False, True))
+@pytest.mark.parametrize("initial_state", (STATE_CLOSED, STATE_OPEN))
+def test_shared_recovery_successes(redis_backed, initial_state):
+    if redis_backed:
+        redis = fakeredis.FakeStrictRedis()
+        first_storage = CircuitRedisStorage(initial_state, redis, namespace="shared_recovery")
+        second_storage = CircuitRedisStorage(initial_state, redis, namespace="shared_recovery")
+    else:
+        first_storage = second_storage = CircuitMemoryStorage(initial_state)
+
+    first = CircuitBreaker(success_threshold=3, state_storage=first_storage)
+    listener = mock.Mock(spec=CircuitBreakerListener)
+    second = CircuitBreaker(success_threshold=3, state_storage=second_storage, listeners=[listener])
+    first.half_open()
+
+    assert first.call(lambda: "first") == "first"
+    assert first.success_counter == 1
+    assert second.call(lambda: "second") == "second"
+    assert second.success_counter == 2
+    assert second.current_state == STATE_HALF_OPEN
+    listener.state_change.assert_called_once()
+    assert listener.state_change.call_args.args[1].name == initial_state
+    assert listener.state_change.call_args.args[2].name == STATE_HALF_OPEN
+    listener.success.assert_called_once_with(second)
+
+    assert first.call(lambda: "third") == "third"
+    assert first.current_state == STATE_CLOSED
+    assert second.current_state == STATE_CLOSED
+    assert first.success_counter == 0
+
+
+@pytest.mark.parametrize("redis_backed", (False, True))
+def test_half_open_restarts_shared_recovery(redis_backed):
+    if redis_backed:
+        storage = CircuitRedisStorage(STATE_CLOSED, fakeredis.FakeStrictRedis())
+    else:
+        storage = CircuitMemoryStorage(STATE_CLOSED)
+
+    first = CircuitBreaker(success_threshold=3, state_storage=storage)
+    first.half_open()
+    first.call(lambda: True)
+    assert first.success_counter == 1
+
+    second = CircuitBreaker(success_threshold=3, state_storage=storage)
+    assert second.success_counter == 1
+    assert second.state.name == STATE_HALF_OPEN
+    assert first.success_counter == 1
+
+    second.half_open()
+    assert first.success_counter == 0
+    assert second.current_state == STATE_HALF_OPEN
+    second.call(lambda: True)
+    assert first.success_counter == 1
+    assert first.current_state == STATE_HALF_OPEN
+
+
 if __name__ == "__main__":
     unittest.main()
