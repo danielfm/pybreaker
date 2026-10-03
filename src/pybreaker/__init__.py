@@ -292,6 +292,7 @@ class CircuitBreaker:
         succeeds).
         """
         with self._lock:
+            self._state_storage.reset_success_counter()
             self.state = self._state_storage.state = STATE_HALF_OPEN  # type: ignore[assignment]
 
     def close(self) -> None:
@@ -875,8 +876,6 @@ class CircuitHalfOpenState(CircuitBreakerState):
         """Move the given circuit breaker `cb` to the "half-open" state."""
         super().__init__(cb, STATE_HALF_OPEN)
         if notify:
-            # Reset success counter when entering half-open state
-            self._breaker._state_storage.reset_success_counter()
             for listener in self._breaker._listeners:
                 listener.state_change(self._breaker, prev_state, self)
 
