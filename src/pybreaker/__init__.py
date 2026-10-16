@@ -838,7 +838,7 @@ class CircuitOpenState(CircuitBreakerState):
             for listener in self._breaker.listeners:
                 listener.state_change(self._breaker, prev_state, self)
 
-    def before_call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    def _check_timeout(self) -> None:
         """After the timeout elapses, move the circuit breaker to the "half-open"
         state; otherwise, raises ``CircuitBreakerError`` without any attempt
         to execute the real operation.
@@ -849,13 +849,22 @@ class CircuitOpenState(CircuitBreakerState):
             error_msg = "Timeout not elapsed yet, circuit breaker still open"
             raise CircuitBreakerError(error_msg)
         self._breaker.half_open()
-        return self._breaker.call(func, *args, **kwargs)
 
     def call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
-        """Delegate the call to before_call, if the time out is not elapsed it will throw an exception, otherwise we get
-        the results from the call performed after the state is switch to half-open.
-        """
-        return self.before_call(func, *args, **kwargs)
+        """Check the timeout and delegate the trial call to the half-open state."""
+        self._check_timeout()
+        return self._breaker.call(func, *args, **kwargs)
+
+    def call_async(self, func, *args: Any, **kwargs: Any):  # type: ignore[no-untyped-def]
+        """Check the timeout and delegate the asynchronous trial to the half-open state."""
+
+        @gen.coroutine
+        def wrapped():  # type: ignore[no-untyped-def]
+            self._check_timeout()
+            ret = yield self._breaker.call_async(func, *args, **kwargs)
+            raise gen.Return(ret)
+
+        return wrapped()
 
 
 class CircuitHalfOpenState(CircuitBreakerState):

@@ -1352,5 +1352,86 @@ class CircuitBreakerContextManagerTestCase(unittest.TestCase):
         assert breaker.current_state == "closed"
 
 
+class CircuitBreakerTornadoRecoveryTestCase(testing.AsyncTestCase):
+    @testing.gen_test
+    def test_decorated_recovery_calls_once(self):
+        listener = mock.Mock(spec=CircuitBreakerListener)
+        breaker = CircuitBreaker(reset_timeout=0, success_threshold=2, listeners=[listener])
+        calls = []
+
+        @breaker(__pybreaker_call_async=True)
+        @gen.coroutine
+        def operation(value):
+            calls.append(value)
+            yield gen.sleep(0)
+            assert breaker.current_state == STATE_HALF_OPEN
+            assert breaker.success_counter == 0
+            listener.success.assert_not_called()
+            return value
+
+        breaker.open()
+        result = yield operation(42)
+
+        assert result == 42
+        assert calls == [42]
+        assert breaker.current_state == STATE_HALF_OPEN
+        assert breaker.success_counter == 1
+        listener.before_call.assert_called_once()
+        listener.success.assert_called_once_with(breaker)
+        listener.failure.assert_not_called()
+
+    @testing.gen_test
+    def test_failed_recovery_reopens(self):
+        listener = mock.Mock(spec=CircuitBreakerListener)
+        breaker = CircuitBreaker(reset_timeout=0, listeners=[listener])
+        calls = []
+
+        @gen.coroutine
+        def operation():
+            calls.append(True)
+            yield gen.sleep(0)
+            raise ValueError("operation failed")
+
+        breaker.open()
+        with pytest.raises(CircuitBreakerError, match="Trial call failed"):
+            yield breaker.call_async(operation)
+
+        assert calls == [True]
+        assert breaker.current_state == STATE_OPEN
+        assert breaker.fail_counter == 1
+        listener.failure.assert_called_once()
+        listener.success.assert_not_called()
+
+    @testing.gen_test
+    def test_failed_recovery_preserves_original_error(self):
+        breaker = CircuitBreaker(reset_timeout=0, throw_new_error_on_trip=False)
+        error = ValueError("operation failed")
+
+        @gen.coroutine
+        def operation():
+            yield gen.sleep(0)
+            raise error
+
+        breaker.open()
+        with pytest.raises(ValueError) as caught:
+            yield breaker.call_async(operation)
+
+        assert caught.value is error
+        assert breaker.current_state == STATE_OPEN
+        assert breaker.fail_counter == 1
+
+    @testing.gen_test
+    def test_open_circuit_rejects_call_before_timeout(self):
+        breaker = CircuitBreaker(reset_timeout=60)
+        operation = mock.Mock()
+        breaker.open()
+
+        with pytest.raises(CircuitBreakerError, match="Timeout not elapsed"):
+            yield breaker.call_async(operation)
+
+        operation.assert_not_called()
+        assert breaker.current_state == STATE_OPEN
+
+
 if __name__ == "__main__":
     unittest.main()
