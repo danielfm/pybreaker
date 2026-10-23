@@ -760,9 +760,9 @@ class CircuitBreakerState:
             value = yield next(wrapped_generator)
             while True:
                 value = yield wrapped_generator.send(value)
-        except StopIteration:
+        except StopIteration as exc:
             self._handle_success()
-            return
+            return exc.value
         except BaseException as e:
             self._handle_error(e, reraise=False)
             wrapped_generator.throw(e)

@@ -359,6 +359,42 @@ class CircuitBreakerStorageBasedTestCase:
             next(s)
         assert self.breaker.fail_counter == 0
 
+    def test_generator_return_value_without_yields(self):
+        """CircuitBreaker: it should preserve a result before the first yield."""
+        self._assert_generator_return_value([], {"count": 0})
+
+    def test_generator_return_value_after_yields(self):
+        """CircuitBreaker: it should preserve a result after multiple yields."""
+        self._assert_generator_return_value(["first", "second"], {"count": 2})
+
+    def test_generator_falsey_return_value(self):
+        """CircuitBreaker: it should not replace a false-valued result with None."""
+        self._assert_generator_return_value(["row"], False)
+
+    def _assert_generator_return_value(self, values, result):
+        listener = mock.Mock(spec=CircuitBreakerListener)
+        self.breaker.add_listener(listener)
+
+        @self.breaker
+        def guarded():
+            yield from values
+            return result
+
+        def caller():
+            return (yield from guarded())
+
+        generator = caller()
+        for value in values:
+            assert next(generator) == value
+        with pytest.raises(StopIteration) as exc_info:
+            next(generator)
+
+        assert exc_info.value.value is result
+        assert self.breaker.fail_counter == 0
+        assert self.breaker.current_state == STATE_CLOSED
+        listener.success.assert_called_once_with(self.breaker)
+        listener.failure.assert_not_called()
+
     def test_contextmanager(self):
         """CircuitBreaker: it should catch in a with statement"""
 
