@@ -235,7 +235,7 @@ class CircuitBreaker:
         """
         exception_type = type(exception)
         for exclusion in self._excluded_exceptions:
-            if type(exclusion) is type:
+            if isinstance(exclusion, type):
                 if issubclass(exception_type, exclusion):
                     return False
             elif callable(exclusion):
